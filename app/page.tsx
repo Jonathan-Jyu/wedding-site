@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-const weddingDate = new Date("2027-01-17T18:00:00+08:00");
+const weddingDate = new Date("2027-01-17T15:30:00+08:00");
 
 function getCountdown() {
   const now = new Date();
@@ -39,19 +39,19 @@ export default function Home() {
             OUR WEDDING
           </p>
 
-          <h1 className="relative mb-6 pt-10 font-serif text-4xl leading-tight text-stone-800 sm:text-5xl md:pt-12 md:text-7xl">
+          <h1 className="mb-6 flex flex-wrap items-center justify-center gap-2 font-serif text-4xl leading-tight text-stone-800 sm:text-5xl md:text-7xl">
+            <span>Jonathan</span>
+
             <Image
               src="/kitty蝴蝶結_2.png"
               alt="kitty bow"
-              width={64}
-              height={64}
-              className="absolute left-1/2 top-0 h-10 w-10 -translate-x-1/2 -rotate-6 opacity-90 md:h-14 md:w-14"
+              width={80}
+              height={80}
+              className="translate-y-[-4px] object-contain w-12 md:w-16"
             />
 
-          <span className="block md:inline">Jonathan</span>
-          <span className="mx-2 text-rose-300 md:mx-3">&</span>
-          <span className="block md:inline">Ramita</span>
-        </h1>
+            <span>Ramita</span>
+          </h1>
 
           <p className="mb-10 text-xl text-stone-600 md:text-2xl">
             2027 / 01 / 17
