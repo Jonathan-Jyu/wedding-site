@@ -22,6 +22,7 @@ export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isOpened, setIsOpened] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -69,13 +70,71 @@ export default function Home() {
     }
   };
 
+  const openInvitation = async () => {
+    setIsOpened(true);
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+    if (audioRef.current) {
+      audioRef.current.volume = 0.15;
+
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      } catch {
+        console.log("Music autoplay blocked");
+      }
+    }
+  };
+
+
   return (
     <>
       <audio ref={audioRef} loop>
         <source src="/music/I Do.mp3" type="audio/mpeg" />
       </audio>
-    <main className="min-h-screen bg-[#faf7f2] text-stone-800">
-      <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-16">
+    <main className="bg-[#faf7f2] text-stone-800">
+      {!isOpened && (
+        <div className="fixed inset-0 z-[100] overflow-hidden bg-[#faf7f2]">
+            <div className="absolute left-[-80px] top-[-80px] h-72 w-72 rounded-full bg-rose-200/50 blur-3xl" />
+            <div className="absolute bottom-[-80px] right-[-80px] h-80 w-80 rounded-full bg-amber-200/50 blur-3xl" />
+
+            <div className="flex min-h-screen items-center justify-center px-6">
+              <div className="relative w-full max-w-md rounded-[2rem] border border-white/70 bg-white/80 p-8 text-center shadow-2xl shadow-stone-200/70 backdrop-blur">
+                <p className="mb-4 text-xs tracking-[0.4em] text-rose-300">
+                  WEDDING INVITATION
+                </p>
+
+                <h1 className="font-serif text-4xl leading-tight text-stone-800">
+                  Jonathan
+                  <span className="mx-2 text-rose-300">&</span>
+                  Ramita
+                </h1>
+
+                <p className="mt-5 text-stone-500">
+                  2027 / 01 / 17
+                </p>
+
+                <div className="mx-auto my-8 h-px w-24 bg-gradient-to-r from-transparent via-rose-200 to-transparent" />
+
+                <p className="mb-8 leading-7 text-stone-500">
+                  誠摯邀請您，
+                  <br />
+                  與我們一同分享這份喜悅。
+                </p>
+
+                <button
+                  onClick={openInvitation}
+                  className="rounded-full bg-stone-800 px-8 py-3 text-sm font-medium text-white shadow-lg transition hover:scale-105 hover:bg-stone-700"
+                >
+                  開啟喜帖 ♡
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      <section className="relative flex items-center justify-center overflow-hidden px-6 py-16">
         <div className="absolute left-[-120px] top-[-120px] h-80 w-80 rounded-full bg-rose-200/40 blur-3xl" />
         <div className="absolute bottom-[-120px] right-[-120px] h-96 w-96 rounded-full bg-amber-200/40 blur-3xl" />
 
