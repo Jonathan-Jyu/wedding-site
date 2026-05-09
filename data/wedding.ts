@@ -1,7 +1,9 @@
 export const weddingInfo = {
   couple: {
     groom: "Jonathan",
+    groomChineseName: "鞠之浩",
     bride: "Ramita",
+    brideChineseName: "謝維玲",
   },
   date: "2027 / 01 / 17",
   ceremonyTime: "15:30",

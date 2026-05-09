@@ -31,6 +31,9 @@ export default function HeroSection({ countdown }: HeroSectionProps) {
 
             <span>Ramita</span>
             </h1>
+            <p className="mb-8 font-serif text-lg tracking-[0.25em] text-[#b89b8a] md:text-3xl">
+            {weddingInfo.couple.groomChineseName} & {weddingInfo.couple.brideChineseName}
+            </p>
 
             <p className="mb-10 text-xl text-stone-600 md:text-2xl">
             {weddingInfo.date}

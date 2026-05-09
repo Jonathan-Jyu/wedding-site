@@ -7,7 +7,10 @@ import LocationSection from "@/components/LocationSection";
 import MusicButton from "@/components/MusicButton";
 import GallerySection from "@/components/GallerySection";
 import InvitationOverlay from "@/components/InvitationOverlay";
+import StorySection from "@/components/StorySection";
+import FooterSection from "@/components/FooterSection";
 import { galleryImages } from "@/data/wedding";
+import { storyTimeline } from "@/data/story";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useGalleryAnimation } from "@/hooks/useGalleryAnimation";
 
@@ -103,9 +106,11 @@ export default function Home() {
         setPaused={setPaused}
       />
       
+      <StorySection stories={storyTimeline} />
       <TimelineSection />
 
       <LocationSection />
+      <FooterSection />
       <MusicButton
         isPlaying={isPlaying}
         toggleMusic={toggleMusic}
