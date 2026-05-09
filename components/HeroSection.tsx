@@ -1,11 +1,7 @@
 import Image from "next/image";
-
-type Countdown = {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-};
+import { weddingInfo } from "@/data/wedding";
+import CountdownCard from "./CountdownCard";
+import { Countdown } from "@/hooks/useCountdown";
 
 type HeroSectionProps = {
   countdown: Countdown;
@@ -37,26 +33,14 @@ export default function HeroSection({ countdown }: HeroSectionProps) {
             </h1>
 
             <p className="mb-10 text-xl text-stone-600 md:text-2xl">
-            2027 / 01 / 17
+            {weddingInfo.date}
             </p>
 
             <div className="mx-auto mb-10 grid max-w-2xl grid-cols-2 gap-3 md:grid-cols-4">
-            <div className="rounded-3xl border border-white/70 bg-white/70 p-5 shadow-sm backdrop-blur">
-                <p className="text-3xl font-semibold">{countdown.days}</p>
-                <p className="mt-1 text-sm text-stone-500">Days</p>
-            </div>
-            <div className="rounded-3xl border border-white/70 bg-white/70 p-5 shadow-sm backdrop-blur">
-                <p className="text-3xl font-semibold">{countdown.hours}</p>
-                <p className="mt-1 text-sm text-stone-500">Hours</p>
-            </div>
-            <div className="rounded-3xl border border-white/70 bg-white/70 p-5 shadow-sm backdrop-blur">
-                <p className="text-3xl font-semibold">{countdown.minutes}</p>
-                <p className="mt-1 text-sm text-stone-500">Minutes</p>
-            </div>
-            <div className="rounded-3xl border border-white/70 bg-white/70 p-5 shadow-sm backdrop-blur">
-                <p className="text-3xl font-semibold">{countdown.seconds}</p>
-                <p className="mt-1 text-sm text-stone-500">Seconds</p>
-            </div>
+              <CountdownCard label="Days" value={countdown.days} />
+              <CountdownCard label="Hours" value={countdown.hours} />
+              <CountdownCard label="Minutes" value={countdown.minutes} />
+              <CountdownCard label="Seconds" value={countdown.seconds} />
             </div>
 
             <div className="mx-auto max-w-2xl rounded-[2rem] border border-white/70 bg-white/75 p-8 shadow-xl shadow-stone-200/50 backdrop-blur">
@@ -64,7 +48,7 @@ export default function HeroSection({ countdown }: HeroSectionProps) {
                 文定儀式與家宴
             </p>
             <p className="text-stone-500">
-                Taipei Marriott Hotel｜21樓 御廳
+                {weddingInfo.venue.englishName}｜{weddingInfo.venue.floor}
             </p>
             <div className="my-6 h-px bg-stone-200" />
             <p className="leading-8 text-stone-500">

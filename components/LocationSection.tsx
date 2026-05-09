@@ -1,3 +1,5 @@
+import { weddingInfo } from "@/data/wedding";
+
 export default function LocationSection() {
   return (
     <section className="px-6 py-16">
@@ -7,13 +9,13 @@ export default function LocationSection() {
           </h2>
           <div className="grid gap-8 md:grid-cols-2">
             <div>
-              <p className="mb-2 font-semibold text-stone-700">台北萬豪酒店</p>
+              <p className="mb-2 font-semibold text-stone-700">{weddingInfo.venue.name}</p>
               <p className="mb-4 text-sm text-stone-500">
-                台北市中山區樂群二路 199 號 21 樓 御廳
+                {weddingInfo.venue.address}
               </p>
               <div className="rounded-2xl overflow-hidden shadow-lg">
                 <iframe
-                  src="https://www.google.com/maps?q=Taipei%20Marriott%20Hotel%2C%20No.%20199%20Lequn%202nd%20Road%2C%20Zhongshan%20District%2C%20Taipei&output=embed"
+                  src={weddingInfo.venue.embedUrl}
                   width="100%"
                   height="300"
                   style={{ border: 0 }}
@@ -29,7 +31,7 @@ export default function LocationSection() {
                 <div>
                   <p className="mb-1 text-sm font-medium text-stone-600">地址</p>
                   <p className="text-stone-700">
-                    台北市中山區樂群二路 199 號
+                    {weddingInfo.venue.address}
                   </p>
                 </div>
                 <div className="h-px bg-stone-200" />
@@ -42,7 +44,7 @@ export default function LocationSection() {
                 </div>
                 <div className="h-px bg-stone-200" />
                 <a
-                  href="https://maps.app.goo.gl/6hDxZpcdpKC5K3Rx5"
+                  href={weddingInfo.venue.googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block rounded-lg bg-rose-200 px-4 py-2 text-sm font-medium text-rose-800 transition hover:bg-rose-300"
