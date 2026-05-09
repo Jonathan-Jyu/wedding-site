@@ -24,12 +24,12 @@ const galleryImages = [
   "/gallery/20201227.jpg",
   "/gallery/20201228.jpg",
   "/gallery/20210101.jpg",
-  "/gallery/202101121.jpg",
+  "/gallery/20210112.jpg",
   "/gallery/20201226.jpg",
   "/gallery/20201227.jpg",
   "/gallery/20201228.jpg",
   "/gallery/20210101.jpg",
-  "/gallery/202101121.jpg",
+  "/gallery/20210112.jpg",
 ];
 
 export default function Home() {
