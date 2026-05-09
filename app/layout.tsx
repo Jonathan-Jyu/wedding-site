@@ -14,7 +14,24 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "Jonathan & Ramita Wedding",
-  description: "2027.01.17 文定儀式與家宴",
+  description: "Wedding Invitation — January 17, 2027",
+
+  openGraph: {
+    title: "Jonathan & Ramita Wedding",
+    description: "Wedding Invitation — January 17, 2027",
+    url: "https://wedding-site-rose-gamma.vercel.app/",
+    siteName: "Jonathan & Ramita Wedding",
+    images: [
+      {
+        url: "/gallery/OG_image.png",
+        width: 1200,
+        height: 630,
+        alt: "Jonathan & Ramita Wedding",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

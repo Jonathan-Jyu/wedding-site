@@ -26,7 +26,7 @@ export default function GallerySection({
   }, [setPaused]);
 
   return (
-    <section className="overflow-hidden py-20">
+    <section id="gallery" className="overflow-hidden py-20">
       <div className="relative">
         <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-24 bg-gradient-to-r from-[#faf7f2] to-transparent" />
         <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-24 bg-gradient-to-l from-[#faf7f2] to-transparent" />

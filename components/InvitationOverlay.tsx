@@ -49,8 +49,6 @@ export default function InvitationOverlay({
                   <span className="h-px w-12 bg-rose-200" />
                 </div>
 
-                <p className="text-sm text-stone-500">2027 / 01 / 17</p>
-
                 <p className="mt-6 text-sm leading-7 text-stone-500">
                   誠摯邀請您，
                   <br />

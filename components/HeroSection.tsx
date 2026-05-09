@@ -9,7 +9,7 @@ type HeroSectionProps = {
 
 export default function HeroSection({ countdown }: HeroSectionProps) {
   return (
-    <section className="relative flex items-center justify-center overflow-hidden px-6 py-16">
+    <section id="home" className="relative flex items-center justify-center overflow-hidden px-6 pb-16 pt-28 md:pt-32">
         <div className="absolute left-[-120px] top-[-120px] h-80 w-80 rounded-full bg-rose-200/40 blur-3xl" />
         <div className="absolute bottom-[-120px] right-[-120px] h-96 w-96 rounded-full bg-amber-200/40 blur-3xl" />
 
@@ -40,10 +40,10 @@ export default function HeroSection({ countdown }: HeroSectionProps) {
             </p>
 
             <div className="mx-auto mb-10 grid max-w-2xl grid-cols-2 gap-3 md:grid-cols-4">
-              <CountdownCard label="Days" value={countdown.days} />
-              <CountdownCard label="Hours" value={countdown.hours} />
-              <CountdownCard label="Minutes" value={countdown.minutes} />
-              <CountdownCard label="Seconds" value={countdown.seconds} />
+            <CountdownCard label="Days" value={countdown.days} />
+            <CountdownCard label="Hours" value={countdown.hours} />
+            <CountdownCard label="Minutes" value={countdown.minutes} />
+            <CountdownCard label="Seconds" value={countdown.seconds} />
             </div>
 
             <div className="mx-auto max-w-2xl rounded-[2rem] border border-white/70 bg-white/75 p-8 shadow-xl shadow-stone-200/50 backdrop-blur">

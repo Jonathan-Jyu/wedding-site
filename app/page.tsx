@@ -9,6 +9,7 @@ import GallerySection from "@/components/GallerySection";
 import InvitationOverlay from "@/components/InvitationOverlay";
 import StorySection from "@/components/StorySection";
 import FooterSection from "@/components/FooterSection";
+import FloatingNavbar from "@/components/FloatingNavbar";
 import { galleryImages } from "@/data/wedding";
 import { storyTimeline } from "@/data/story";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -93,6 +94,7 @@ export default function Home() {
         <source src="/music/I Love You 3000.mp3" type="audio/mpeg" />
       </audio>
     <main className="bg-[#faf7f2] text-stone-800">
+      <FloatingNavbar />
       <InvitationOverlay
         isOpened={isOpened}
         isOpening={isOpening}

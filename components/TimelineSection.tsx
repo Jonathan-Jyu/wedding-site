@@ -5,7 +5,7 @@ import { weddingTimeline } from "@/data/wedding";
 
 export default function TimelineSection() {
   return (
-    <section className="px-6 py-20">
+    <section id="timeline" className="px-6 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-14 text-center">
             <p className="mb-3 text-xs tracking-[0.4em] text-rose-300">
