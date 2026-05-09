@@ -2,11 +2,20 @@ import { weddingInfo } from "@/data/wedding";
 
 export default function LocationSection() {
   return (
-    <section className="px-6 py-16">
-        <div className="mx-auto max-w-4xl">
-          <h2 className="mb-10 text-center font-serif text-4xl text-stone-800">
-            交通地點
-          </h2>
+    <section className="px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-14 text-center">
+            <p className="mb-3 text-xs tracking-[0.4em] text-rose-300">
+              LOCATION
+            </p>
+
+            <h2 className="font-serif text-4xl text-stone-800 md:text-5xl">
+              交通地點
+            </h2>
+
+            <div className="mx-auto mt-5 h-px w-20 bg-gradient-to-r from-transparent via-rose-200 to-transparent" />
+          </div>
+
           <div className="grid gap-8 md:grid-cols-2">
             <div>
               <p className="mb-2 font-semibold text-stone-700">{weddingInfo.venue.name}</p>
