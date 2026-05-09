@@ -20,18 +20,18 @@ function getCountdown() {
   return { days, hours, minutes, seconds };
 }
 const galleryImages = [
-  "/gallery/202012261.jpg",
-  "/gallery/202012271.jpg",
-  "/gallery/202012281.jpg",
-  "/gallery/202101011.jpg",
-  "/gallery/202101101.jpg",
-  "/gallery/202101121.jpg",
-  "/gallery/202012261.jpg",
-  "/gallery/202012271.jpg",
-  "/gallery/202012281.jpg",
-  "/gallery/202101011.jpg",
-  "/gallery/202101101.jpg",
-  "/gallery/202101121.jpg",
+  "/gallery/20201226.jpg",
+  "/gallery/20201227.jpg",
+  "/gallery/20201228.jpg",
+  "/gallery/20210101.jpg",
+  "/gallery/20210110.jpg",
+  "/gallery/20210112.jpg",
+  "/gallery/20201226.jpg",
+  "/gallery/20201227.jpg",
+  "/gallery/20201228.jpg",
+  "/gallery/20210101.jpg",
+  "/gallery/20210110.jpg",
+  "/gallery/20210112.jpg",
 ];
 
 export default function Home() {
