@@ -16,6 +16,13 @@ function getCountdown() {
 
   return { days, hours, minutes, seconds };
 }
+const galleryImages = [
+  "/gallery/20201226.jpg",
+  "/gallery/20201227.jpg",
+  "/gallery/20201228.jpg",
+  "/gallery/20210101.jpg",
+  "/gallery/20210112.jpg",
+];
 
 export default function Home() {
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -24,6 +31,11 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isOpened, setIsOpened] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const galleryRef = useRef<HTMLDivElement>(null);
+  const [isGalleryPaused, setIsGalleryPaused] = useState(false);
+  const isGalleryPausedRef = useRef(false);
+  const currentPositionRef = useRef(0);
 
   useEffect(() => {
     setIsMounted(true);
@@ -51,8 +63,51 @@ export default function Home() {
       setCountdown(getCountdown());
     }, 1000);
 
+    // 輪播動畫 - 使用 requestAnimationFrame 確保與螢幕重新整理率同步
+    let animationFrameId: number;
+    let totalDistance = 0;
+    const speed = 0.2; // 像素/幀 (60fps下約48像素/秒)
+
+    const animate = () => {
+      if (!galleryRef.current) {
+        animationFrameId = requestAnimationFrame(animate);
+        return;
+      }
+      
+      const gallery = galleryRef.current;
+      const children = gallery.children;
+      if (children.length === 0) {
+        animationFrameId = requestAnimationFrame(animate);
+        return;
+      }
+      
+      // 首次計算總距離
+      if (totalDistance === 0) {
+        const firstChild = children[0] as HTMLElement;
+        const style = window.getComputedStyle(gallery);
+        const gap = parseFloat(style.gap) || 0;
+        const imageWidth = firstChild.offsetWidth;
+        totalDistance = (imageWidth + gap) * 5;
+      }
+      
+      if (!isGalleryPausedRef.current) {
+        currentPositionRef.current += speed;
+
+        if (currentPositionRef.current >= totalDistance) {
+          currentPositionRef.current = 0;
+        }
+
+        setScrollPosition(currentPositionRef.current);
+      }
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+
     return () => {
       clearInterval(timer);
+      cancelAnimationFrame(animationFrameId);
       document.removeEventListener("click", handleFirstClick);
     };
   }, []);
@@ -244,6 +299,69 @@ export default function Home() {
           </div>
         </div>
       </section>
+      <section className="overflow-hidden py-20">
+        <div className="relative">
+          {/* 漸層遮罩 */}
+          <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-24 bg-gradient-to-r from-[#faf7f2] to-transparent" />
+          <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-24 bg-gradient-to-l from-[#faf7f2] to-transparent" />
+
+          {/* 自動輪播 */}
+          <div
+            ref={galleryRef}
+            className="flex gap-6"
+            onMouseDown={() => {
+              setIsGalleryPaused(true);
+              isGalleryPausedRef.current = true;
+            }}
+            onMouseUp={() => {
+              setIsGalleryPaused(false);
+              isGalleryPausedRef.current = false;
+            }}
+            onMouseLeave={() => {
+              setIsGalleryPaused(false);
+              isGalleryPausedRef.current = false;
+            }}
+            onTouchStart={() => {
+              setIsGalleryPaused(true);
+              isGalleryPausedRef.current = true;
+            }}
+            onTouchEnd={() => {
+              setIsGalleryPaused(false);
+              isGalleryPausedRef.current = false;
+            }}
+            style={{
+              transform: `translateX(-${scrollPosition}px)`,
+              transition: "transform 0.016s linear",
+            }}
+          >
+            {[
+              "/gallery/20201226.jpg",
+              "/gallery/20201227.jpg",
+              "/gallery/20201228.jpg",
+              "/gallery/20210101.jpg",
+              "/gallery/20210112.jpg",
+              "/gallery/20201226.jpg",
+              "/gallery/20201227.jpg",
+              "/gallery/20201228.jpg",
+              "/gallery/20210101.jpg",
+              "/gallery/20210112.jpg",
+            ].map((src, index) => (
+              <div
+                key={index}
+                className="min-w-[280px] overflow-hidden rounded-[2rem] shadow-2xl shadow-stone-200/50 md:min-w-[380px]"
+              >
+                <img
+                  src={src}
+                  alt={`gallery-${index}`}
+                  className="h-[420px] w-full object-cover transition duration-700 hover:scale-105 md:h-[520px]"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+
       <section className="px-6 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-14 text-center">
