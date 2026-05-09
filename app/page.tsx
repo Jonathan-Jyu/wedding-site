@@ -23,6 +23,7 @@ export default function Home() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isOpened, setIsOpened] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -71,11 +72,8 @@ export default function Home() {
   };
 
   const openInvitation = async () => {
-    setIsOpened(true);
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    setIsOpening(true);
+
     if (audioRef.current) {
       audioRef.current.volume = 0.15;
 
@@ -86,54 +84,104 @@ export default function Home() {
         console.log("Music autoplay blocked");
       }
     }
+
+    setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: "instant",
+      });
+
+      setIsOpened(true);
+    }, 1200);
   };
 
 
   return (
     <>
       <audio ref={audioRef} loop>
-        <source src="/music/I Do.mp3" type="audio/mpeg" />
+        <source src="/music/I Love You 3000.mp3" type="audio/mpeg" />
       </audio>
     <main className="bg-[#faf7f2] text-stone-800">
-      {!isOpened && (
-        <div className="fixed inset-0 z-[100] overflow-hidden bg-[#faf7f2]">
+      <div className={`fixed inset-0 z-[100] overflow-hidden bg-[#faf7f2] transition-opacity duration-1000 ${
+        isOpened ? "opacity-0 pointer-events-none" : "opacity-100"
+      }`}>
+        {!isOpened && (
+          <>
             <div className="absolute left-[-80px] top-[-80px] h-72 w-72 rounded-full bg-rose-200/50 blur-3xl" />
             <div className="absolute bottom-[-80px] right-[-80px] h-80 w-80 rounded-full bg-amber-200/50 blur-3xl" />
 
             <div className="flex min-h-screen items-center justify-center px-6">
-              <div className="relative w-full max-w-md rounded-[2rem] border border-white/70 bg-white/80 p-8 text-center shadow-2xl shadow-stone-200/70 backdrop-blur">
-                <p className="mb-4 text-xs tracking-[0.4em] text-rose-300">
+            <div
+              className={`relative h-[520px] w-[390px] max-w-[92vw] transition-all duration-700 ${
+                isOpening ? "scale-105 opacity-0 blur-sm delay-[1000ms]" : "scale-100 opacity-100"
+              }`}
+            >
+              {/* 卡片：一開始插在信封裡，點擊後往上飛出 */}
+              <div
+                className={`absolute left-1/2 z-30 w-[82%] -translate-x-1/2 rounded-[1.7rem] border border-white/80 bg-[#fffdf9] px-6 py-7 text-center shadow-2xl shadow-stone-200/70 transition-all duration-1000 ease-out ${
+                  isOpening ? "top-0 opacity-100" : "top-[150px] opacity-100"
+                }`}
+              >
+                <p className="mb-3 text-[11px] tracking-[0.35em] text-rose-300">
                   WEDDING INVITATION
                 </p>
 
-                <h1 className="font-serif text-4xl leading-tight text-stone-800">
+                <h1 className="font-serif text-3xl leading-tight text-stone-800">
                   Jonathan
                   <span className="mx-2 text-rose-300">&</span>
                   Ramita
                 </h1>
 
-                <p className="mt-5 text-stone-500">
-                  2027 / 01 / 17
-                </p>
+                <div className="mx-auto my-5 flex items-center justify-center gap-3 text-rose-300">
+                  <span className="h-px w-12 bg-rose-200" />
+                  <span className="text-xl">♡</span>
+                  <span className="h-px w-12 bg-rose-200" />
+                </div>
 
-                <div className="mx-auto my-8 h-px w-24 bg-gradient-to-r from-transparent via-rose-200 to-transparent" />
+                <p className="text-sm text-stone-500">2027 / 01 / 17</p>
 
-                <p className="mb-8 leading-7 text-stone-500">
+                <p className="mt-6 text-sm leading-7 text-stone-500">
                   誠摯邀請您，
                   <br />
                   與我們一同分享這份喜悅。
                 </p>
-
-                <button
-                  onClick={openInvitation}
-                  className="rounded-full bg-stone-800 px-8 py-3 text-sm font-medium text-white shadow-lg transition hover:scale-105 hover:bg-stone-700"
-                >
-                  開啟喜帖 ♡
-                </button>
               </div>
+
+              {/* 信封背板：開口朝上 */}
+              <div className="absolute bottom-20 left-0 z-10 h-64 w-full rounded-[2rem] bg-gradient-to-br from-[#ffe9e3] to-[#f8cfc8] shadow-2xl shadow-stone-200/70" />
+
+              {/* 信封內側陰影 */}
+              <div className="absolute bottom-[260px] left-1/2 z-20 h-24 w-[92%] -translate-x-1/2 rounded-t-[2rem] bg-gradient-to-b from-[#eeb4aa] to-[#f8cfc8]" />
+
+              {/* 左右信封摺片 */}
+              <div className="absolute bottom-20 left-0 z-40 h-64 w-full overflow-hidden rounded-[2rem]">
+                <div className="absolute bottom-0 left-0 h-0 w-0 border-b-[256px] border-r-[195px] border-b-[#fde1da] border-r-transparent" />
+                <div className="absolute bottom-0 right-0 h-0 w-0 border-b-[256px] border-l-[195px] border-b-[#fbd6ce] border-l-transparent" />
+              </div>
+
+              {/* 信封正面：V 型 */}
+              <div className="absolute bottom-20 left-0 z-50 h-64 w-full rounded-[2rem] bg-gradient-to-br from-[#fff0eb] to-[#f9d4cc] shadow-xl [clip-path:polygon(0_28%,50%_63%,100%_28%,100%_100%,0_100%)]" />
+
+              {/* 金色愛心封口 */}
+              <div className="absolute bottom-[146px] left-1/2 z-[60] flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 to-amber-300 text-xl shadow-lg shadow-amber-200/60">
+                ♡
+              </div>
+
+              {/* 按鈕：信封下方 */}
+              <button
+                onClick={openInvitation}
+                disabled={isOpening}
+                className={`absolute bottom-0 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-stone-800 px-8 py-3 text-sm font-medium text-white shadow-xl transition hover:scale-105 hover:bg-stone-700 disabled:cursor-not-allowed ${
+                  isOpening ? "opacity-0" : "opacity-100"
+                }`}
+              >
+                開啟喜帖 ♡
+              </button>
             </div>
           </div>
+          </>
         )}
+      </div>
       <section className="relative flex items-center justify-center overflow-hidden px-6 py-16">
         <div className="absolute left-[-120px] top-[-120px] h-80 w-80 rounded-full bg-rose-200/40 blur-3xl" />
         <div className="absolute bottom-[-120px] right-[-120px] h-96 w-96 rounded-full bg-amber-200/40 blur-3xl" />
