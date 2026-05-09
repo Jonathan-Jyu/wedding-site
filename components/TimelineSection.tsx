@@ -31,13 +31,13 @@ export default function TimelineSection() {
               {weddingTimeline.map((item, index) => (
                 <motion.div
                   key={index}
-                  initial={{ opacity: 0, y: 50 }}
+                  initial={{ opacity: 0, y: 80 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.35 }}
+                  viewport={{ once: false, amount: 0.25 }}
                   transition={{
-                    duration: 0.7,
-                    delay: index * 0.15,
-                    ease: "easeOut",
+                    duration: 1.6,
+                    delay: index * 0.25,
+                    ease: [0.22, 1, 0.36, 1],
                   }}
                   className="relative grid gap-5 rounded-3xl bg-[#fffaf7] p-6 md:grid-cols-[120px_1fr] md:p-7"
                 >

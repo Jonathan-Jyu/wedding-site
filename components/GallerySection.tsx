@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "framer-motion";
 import { useCallback } from "react";
 
 type GallerySectionProps = {
@@ -42,16 +45,31 @@ export default function GallerySection({
           }}
         >
           {[...images, ...images].map((src, index) => (
-            <div
+            <motion.div
               key={index}
+              whileHover={{
+                scale: 1.03,
+                y: -8,
+              }}
+              transition={{
+                duration: 0.35,
+                ease: [0.22, 1, 0.36, 1],
+              }}
               className="min-w-[280px] overflow-hidden rounded-[2rem] shadow-2xl shadow-stone-200/50 md:min-w-[380px]"
             >
               <img
                 src={src}
                 alt={`gallery-${index}`}
-                className="h-[420px] w-full object-cover transition duration-700 hover:scale-105 md:h-[520px]"
+                draggable={false}
+                className="
+                  h-[420px] w-full object-cover
+                  select-none
+                  transition-all duration-700
+                  hover:brightness-110
+                  md:h-[520px]
+                "
               />
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
