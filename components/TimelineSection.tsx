@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "framer-motion";
 import { weddingTimeline } from "@/data/wedding";
 
 export default function TimelineSection() {
@@ -26,10 +29,19 @@ export default function TimelineSection() {
             <div className="relative space-y-8">
               <div className="absolute left-6 top-8 hidden h-[calc(100%-4rem)] w-px bg-gradient-to-b from-rose-200 via-amber-200 to-rose-100 md:block" />
               {weddingTimeline.map((item, index) => (
-                <div
+                <motion.div
                   key={index}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.35 }}
+                  transition={{
+                    duration: 0.7,
+                    delay: index * 0.15,
+                    ease: "easeOut",
+                  }}
                   className="relative grid gap-5 rounded-3xl bg-[#fffaf7] p-6 md:grid-cols-[120px_1fr] md:p-7"
                 >
+                
                   <div className="flex items-center gap-4 md:block">
                     <div
                       className={`flex h-12 w-12 items-center justify-center rounded-full text-2xl font-bold shadow-sm md:mb-4 ${
@@ -61,7 +73,7 @@ export default function TimelineSection() {
                       {item.description}
                     </p>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
