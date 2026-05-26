@@ -115,12 +115,12 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
         }
       }
 
-      // 環形滾動
+      // 無限環形滾動
       if (totalDistance > 0) {
         if (currentPositionRef.current >= totalDistance) {
-          currentPositionRef.current = 0;
+          currentPositionRef.current -= totalDistance;
         } else if (currentPositionRef.current < 0) {
-          currentPositionRef.current = totalDistance;
+          currentPositionRef.current += totalDistance;
         }
       }
 
