@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useCallback } from "react";
 
 type GallerySectionProps = {
   images: string[];
@@ -16,15 +15,6 @@ export default function GallerySection({
   scrollPosition,
   setPaused,
 }: GallerySectionProps) {
-  // 統一的暫停/繼續處理
-  const handlePauseStart = useCallback(() => {
-    setPaused(true);
-  }, [setPaused]);
-
-  const handlePauseEnd = useCallback(() => {
-    setPaused(false);
-  }, [setPaused]);
-
   return (
     <section id="gallery" className="overflow-hidden py-20">
       <div className="relative">
@@ -33,12 +23,7 @@ export default function GallerySection({
 
         <div
           ref={galleryRef}
-          className="flex gap-6"
-          onMouseDown={handlePauseStart}
-          onMouseUp={handlePauseEnd}
-          onMouseLeave={handlePauseEnd}
-          onTouchStart={handlePauseStart}
-          onTouchEnd={handlePauseEnd}
+          className="flex gap-6 cursor-grab active:cursor-grabbing select-none"
           style={{
             transform: `translateX(-${scrollPosition}px)`,
             transition: "transform 0.016s linear",
@@ -56,6 +41,7 @@ export default function GallerySection({
                 ease: [0.22, 1, 0.36, 1],
               }}
               className="min-w-[280px] overflow-hidden rounded-[2rem] shadow-2xl shadow-stone-200/50 md:min-w-[380px]"
+              draggable={false}
             >
               <img
                 src={src}
