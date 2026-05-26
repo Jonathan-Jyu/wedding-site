@@ -96,15 +96,7 @@ export default function FooterSection() {
           for every moment of love, laughter, and kindness along the way.
         </p>
 
-        <p className="mx-auto mt-8 max-w-2xl font-serif text-[1.15rem] italic leading-[2.4rem] text-[#8f8178] md:text-[1.3rem]">
-          As we begin this new chapter together,
-          <br />
-          we look forward to creating beautiful memories
-          <br />
-          surrounded by the people who mean the most to us.
-        </p>
-
-        <p className="mt-14 font-serif text-2xl italic leading-10 text-[#c6a77d] md:text-3xl">
+        <p className="mt-14 font-serif text-2xl italic tracking-[0.02em] leading-10 text-[#c6a77d] md:text-3xl">
           "With you, every ordinary moment
           <br />
           becomes something unforgettable."

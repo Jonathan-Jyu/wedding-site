@@ -3,7 +3,7 @@ export const storyTimeline = [
     year: "2020.12.26",
     title: "交往",
     description: "從一碗豆花開始的緣分，一次幫媽媽化妝的相遇，短短兩個禮拜的認識，我們卻很確定彼此就是想一起走下去的人。",
-    image: "/gallery/20201227.jpg",
+    image: "/gallery/20210103.jpg",
   },
   {
     year: "2025.12.27",
