@@ -48,7 +48,7 @@ export default function LocationSection() {
                   <p className="mb-1 text-sm font-medium text-stone-600">交通方式</p>
                   <ul className="space-y-2 text-sm text-stone-600">
                     <li>🚇 捷運：劍南路站 步行約 10 分鐘</li>
-                    <li>🅿️ 停車：飯店地下停車場</li>
+                    <li>🅿️ 停車：飯店地下停車場（停滿為止）</li>
                   </ul>
                 </div>
                 <div className="h-px bg-stone-200" />

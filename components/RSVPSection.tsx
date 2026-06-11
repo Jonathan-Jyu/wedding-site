@@ -19,6 +19,64 @@ interface SubmitState {
   error: string | null;
 }
 
+type CounterFieldProps = {
+  label: string;
+  description?: string;
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (value: number) => void;
+};
+
+function CounterField({
+  label,
+  description,
+  value,
+  min = 0,
+  max = 10,
+  onChange,
+}: CounterFieldProps) {
+  const decrease = () => onChange(Math.max(min, value - 1));
+  const increase = () => onChange(Math.min(max, value + 1));
+
+  return (
+    <div className="rounded-2xl border border-rose-100/70 bg-[#fffaf7] p-5">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="font-medium text-stone-700">{label}</p>
+          {description && (
+            <p className="mt-1 text-sm text-stone-400">{description}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={decrease}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl text-stone-500 shadow-sm transition hover:bg-rose-50 disabled:opacity-40"
+            disabled={value <= min}
+          >
+            −
+          </button>
+
+          <span className="w-8 text-center font-serif text-3xl text-stone-800">
+            {value}
+          </span>
+
+          <button
+            type="button"
+            onClick={increase}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl text-stone-500 shadow-sm transition hover:bg-rose-50 disabled:opacity-40"
+            disabled={value >= max}
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RSVPSection() {
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -36,16 +94,13 @@ export default function RSVPSection() {
     error: null,
   });
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  const updateField = <K extends keyof FormData>(
+    key: K,
+    value: FormData[K]
   ) => {
-    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        name === "guests" || name === "vegetarian" || name === "children"
-          ? parseInt(value) || 0
-          : value,
+      [key]: value,
     }));
   };
 
@@ -53,25 +108,17 @@ export default function RSVPSection() {
     setFormData((prev) => ({
       ...prev,
       attending: value,
-      // Reset attending-related fields when selecting 不參加
-      ...(value === false && {
-        guests: 0,
-        vegetarian: 0,
-        children: 0,
-      }),
+      guests: value ? Math.max(prev.guests, 1) : 0,
+      vegetarian: value ? prev.vegetarian : 0,
+      children: value ? prev.children : 0,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
     if (!formData.name.trim()) {
-      setSubmitState({
-        loading: false,
-        success: false,
-        error: "請輸入姓名",
-      });
+      setSubmitState({ loading: false, success: false, error: "請輸入姓名" });
       return;
     }
 
@@ -101,39 +148,22 @@ export default function RSVPSection() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: formData.name,
-          phone: formData.phone,
-          attending: formData.attending,
-          guests: formData.guests,
-          vegetarian: formData.vegetarian,
-          children: formData.children,
-          message: formData.message,
-        }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
 
       if (data.success) {
         setSubmitState({ loading: false, success: true, error: null });
-        // Reset form after success
-        setFormData({
-          name: "",
-          phone: "",
-          attending: null,
-          guests: 1,
-          vegetarian: 0,
-          children: 0,
-          message: "",
-        });
-      } else {
-        setSubmitState({
-          loading: false,
-          success: false,
-          error: data.error || "提交失敗，請稍後重試",
-        });
+        return;
       }
-    } catch (err) {
+
+      setSubmitState({
+        loading: false,
+        success: false,
+        error: data.error || "提交失敗，請稍後重試",
+      });
+    } catch {
       setSubmitState({
         loading: false,
         success: false,
@@ -144,204 +174,202 @@ export default function RSVPSection() {
 
   if (submitState.success) {
     return (
-      <section id="rsvp" className="px-6 py-20">
-        <div className="mx-auto max-w-5xl">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6 }}
-            className="mx-auto max-w-2xl rounded-2xl border border-white/70 bg-white/80 p-12 text-center backdrop-blur shadow-xl"
-          >
-            <div className="mb-4 text-5xl">♡</div>
-            <h3 className="mb-3 font-serif text-3xl text-stone-800">Thank You</h3>
-            <p className="mb-2 text-lg text-stone-600">我們已收到您的回覆</p>
-            <p className="text-stone-500">期待與您相見</p>
+      <section id="rsvp" className="px-6 py-24">
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.98 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: false, amount: 0.3 }}
+          transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+          className="mx-auto max-w-2xl rounded-[2rem] border border-white/70 bg-white/80 p-10 text-center shadow-2xl shadow-stone-200/60 backdrop-blur md:p-14"
+        >
+          <p className="mb-4 text-5xl text-rose-300">♡</p>
+          <p className="mb-3 text-xs tracking-[0.4em] text-rose-300">
+            THANK YOU
+          </p>
+          <h2 className="font-serif text-4xl text-stone-800">
+            我們已收到您的回覆
+          </h2>
+          <p className="mt-5 leading-8 text-stone-500">
+            謝謝您的回覆，
+            <br />
+            期待在婚禮當天與您相見。
+          </p>
 
-            <button
-              onClick={() => {
-                setSubmitState({
-                  loading: false,
-                  success: false,
-                  error: null,
-                });
-              }}
-              className="mt-8 rounded-full bg-rose-200/80 px-8 py-3 text-sm font-medium text-rose-800 transition hover:bg-rose-200"
-            >
-              返回表單
-            </button>
-          </motion.div>
-        </div>
+          <button
+            onClick={() =>
+              setSubmitState({ loading: false, success: false, error: null })
+            }
+            className="mt-10 rounded-full bg-stone-800 px-8 py-3 text-sm font-medium text-white shadow-lg transition hover:scale-105 hover:bg-stone-700"
+          >
+            返回表單
+          </button>
+        </motion.div>
       </section>
     );
   }
 
   return (
-    <section id="rsvp" className="px-6 py-20">
-      <div className="mx-auto max-w-5xl">
+    <section id="rsvp" className="relative overflow-hidden px-6 py-24">
+      <div className="absolute left-[-120px] top-10 h-80 w-80 rounded-full bg-rose-100/50 blur-3xl" />
+      <div className="absolute bottom-0 right-[-120px] h-80 w-80 rounded-full bg-amber-100/50 blur-3xl" />
+
+      <div className="relative mx-auto max-w-5xl">
         <div className="mb-14 text-center">
-          <p className="mb-3 text-xs tracking-[0.4em] text-rose-300">
-            RSVP
-          </p>
+          <p className="mb-3 text-xs tracking-[0.4em] text-rose-300">RSVP</p>
 
           <h2 className="font-serif text-4xl text-stone-800 md:text-5xl">
             期待與你們相見
           </h2>
 
           <div className="mx-auto mt-5 h-px w-20 bg-gradient-to-r from-transparent via-rose-200 to-transparent" />
+
+          <p className="mx-auto mt-5 max-w-md leading-7 text-stone-500">
+            請留下您的回覆，
+            <br className="hidden md:block" />
+            讓我們為這一天準備最合適的安排。
+          </p>
         </div>
 
-        <div className="mx-auto max-w-2xl rounded-2xl border border-white/70 bg-white/75 p-8 backdrop-blur shadow-xl md:p-10">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Message */}
+        <motion.div
+          initial={{ opacity: 0, y: 60 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.25 }}
+          transition={{
+            duration: 1.2,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          className="mx-auto max-w-3xl rounded-[2rem] border border-white/70 bg-white/75 p-6 shadow-2xl shadow-stone-200/60 backdrop-blur md:p-10"
+        >
+          <form onSubmit={handleSubmit} className="space-y-7">
             {submitState.error && (
-              <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+              <div className="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm text-rose-700">
                 {submitState.error}
               </div>
             )}
 
-            {/* Name */}
-            <div>
-              <label className="mb-2 block text-sm font-medium text-stone-700">
-                姓名 <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="請輸入姓名"
-                className="w-full rounded-lg border border-stone-200 bg-stone-50/50 px-4 py-3 text-stone-800 placeholder-stone-400 transition focus:border-rose-300 focus:bg-white focus:outline-none"
-              />
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="mb-2 block text-sm font-medium text-stone-700">
-                聯絡電話 <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                placeholder="請輸入聯絡電話"
-                className="w-full rounded-lg border border-stone-200 bg-stone-50/50 px-4 py-3 text-stone-800 placeholder-stone-400 transition focus:border-rose-300 focus:bg-white focus:outline-none"
-              />
-            </div>
-
-            {/* Attendance Radio */}
-            <div>
-              <label className="mb-3 block text-sm font-medium text-stone-700">
-                是否出席家宴 <span className="text-rose-500">*</span>
-              </label>
-              <div className="flex gap-6">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="attending"
-                    checked={formData.attending === true}
-                    onChange={() => handleAttendingChange(true)}
-                    className="h-4 w-4 cursor-pointer border-stone-300 text-rose-500"
-                  />
-                  <span className="text-stone-700">參加</span>
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-stone-700">
+                  怎麼稱呼您？ <span className="text-rose-400">*</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="attending"
-                    checked={formData.attending === false}
-                    onChange={() => handleAttendingChange(false)}
-                    className="h-4 w-4 cursor-pointer border-stone-300 text-rose-500"
-                  />
-                  <span className="text-stone-700">不參加</span>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => updateField("name", e.target.value)}
+                  placeholder="請留下您的姓名"
+                  className="w-full rounded-2xl border border-stone-200 bg-[#fffaf7] px-5 py-4 text-stone-800 outline-none transition placeholder:text-stone-300 focus:border-rose-200 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-stone-700">
+                  聯絡電話 <span className="text-rose-400">*</span>
                 </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => updateField("phone", e.target.value)}
+                  placeholder="例如：0912-345-678"
+                  className="w-full rounded-2xl border border-stone-200 bg-[#fffaf7] px-5 py-4 text-stone-800 outline-none transition placeholder:text-stone-300 focus:border-rose-200 focus:bg-white"
+                />
               </div>
             </div>
 
-            {/* Conditional Fields - Only show if attending */}
+            <div>
+              <label className="mb-3 block text-sm font-medium text-stone-700">
+                是否出席家宴 <span className="text-rose-400">*</span>
+              </label>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => handleAttendingChange(true)}
+                  className={`rounded-2xl border px-5 py-5 text-left transition ${
+                    formData.attending === true
+                      ? "border-rose-200 bg-rose-50 text-rose-800 shadow-sm"
+                      : "border-stone-200 bg-[#fffaf7] text-stone-600 hover:bg-white"
+                  }`}
+                >
+                  <p className="font-medium">❤️ 要，我要去</p>
+                  <p className="mt-1 text-sm opacity-70">
+                    期待與新人一起分享喜悅
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleAttendingChange(false)}
+                  className={`rounded-2xl border px-5 py-5 text-left transition ${
+                    formData.attending === false
+                      ? "border-stone-300 bg-stone-100 text-stone-800 shadow-sm"
+                      : "border-stone-200 bg-[#fffaf7] text-stone-600 hover:bg-white"
+                  }`}
+                >
+                  <p className="font-medium">😢 抱歉，已有安排無法出席</p>
+                  <p className="mt-1 text-sm opacity-70">
+                    送上祝福，我們也會收到
+                  </p>
+                </button>
+              </div>
+            </div>
+
             {formData.attending === true && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-6 pt-2"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="grid gap-4"
               >
-                {/* Guests */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-stone-700">
-                    出席人數(包含自己)
-                  </label>
-                  <input
-                    type="number"
-                    name="guests"
-                    min="1"
-                    max="10"
-                    value={formData.guests}
-                    onChange={handleInputChange}
-                    className="w-full rounded-lg border border-stone-200 bg-stone-50/50 px-4 py-3 text-stone-800 transition focus:border-rose-300 focus:bg-white focus:outline-none"
-                  />
-                </div>
+                <CounterField
+                  label="一起出席的人數"
+                  description="包含您自己"
+                  min={1}
+                  max={10}
+                  value={formData.guests}
+                  onChange={(value) => updateField("guests", value)}
+                />
 
-                {/* Vegetarian */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-stone-700">
-                    素食人數
-                  </label>
-                  <input
-                    type="number"
-                    name="vegetarian"
-                    min="0"
-                    max="10"
-                    value={formData.vegetarian}
-                    onChange={handleInputChange}
-                    className="w-full rounded-lg border border-stone-200 bg-stone-50/50 px-4 py-3 text-stone-800 transition focus:border-rose-300 focus:bg-white focus:outline-none"
-                  />
-                </div>
+                <CounterField
+                  label="需要素食的人數"
+                  min={0}
+                  max={10}
+                  value={formData.vegetarian}
+                  onChange={(value) => updateField("vegetarian", value)}
+                />
 
-                {/* Children */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-stone-700">
-                    小孩人數(需兒童座椅或餐具)
-                  </label>
-                  <input
-                    type="number"
-                    name="children"
-                    min="0"
-                    max="10"
-                    value={formData.children}
-                    onChange={handleInputChange}
-                    className="w-full rounded-lg border border-stone-200 bg-stone-50/50 px-4 py-3 text-stone-800 transition focus:border-rose-300 focus:bg-white focus:outline-none"
-                  />
-                </div>
+                <CounterField
+                  label="需要兒童座椅 / 餐具的人數"
+                //   description="需兒童座椅或餐具"
+                  min={0}
+                  max={10}
+                  value={formData.children}
+                  onChange={(value) => updateField("children", value)}
+                />
               </motion.div>
             )}
 
-            {/* Message */}
             <div>
               <label className="mb-2 block text-sm font-medium text-stone-700">
                 想說的話
               </label>
               <textarea
-                name="message"
                 value={formData.message}
-                onChange={handleInputChange}
+                onChange={(e) => updateField("message", e.target.value)}
                 placeholder="留下您的祝福或備註"
                 rows={4}
-                className="w-full rounded-lg border border-stone-200 bg-stone-50/50 px-4 py-3 text-stone-800 placeholder-stone-400 transition focus:border-rose-300 focus:bg-white focus:outline-none resize-none"
+                className="w-full resize-none rounded-2xl border border-stone-200 bg-[#fffaf7] px-5 py-4 text-stone-800 outline-none transition placeholder:text-stone-300 focus:border-rose-200 focus:bg-white"
               />
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={submitState.loading}
-              className="w-full rounded-lg bg-rose-200 px-6 py-3 font-medium text-rose-800 transition hover:bg-rose-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-full bg-stone-800 px-8 py-4 text-sm font-medium tracking-[0.15em] text-white shadow-xl transition hover:scale-[1.01] hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitState.loading ? "提交中..." : "提交"}
+              {submitState.loading ? "送出中..." : "送出回覆 ♡"}
             </button>
           </form>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
