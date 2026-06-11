@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import HeroSection from "@/components/HeroSection";
 import TimelineSection from "@/components/TimelineSection";
 import LocationSection from "@/components/LocationSection";
+import RSVPSection from "@/components/RSVPSection";
 import MusicButton from "@/components/MusicButton";
 import GallerySection from "@/components/GallerySection";
 import InvitationOverlay from "@/components/InvitationOverlay";
@@ -110,6 +111,8 @@ export default function Home() {
       
       <StorySection stories={storyTimeline} />
       <TimelineSection />
+
+      <RSVPSection />
 
       <LocationSection />
       <FooterSection />
