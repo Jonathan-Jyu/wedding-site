@@ -20,12 +20,13 @@ export const weddingInfo = {
 };
 
 export const galleryImages = [
-  "/gallery/20201226.jpg",
-  "/gallery/20201227.jpg",
-  "/gallery/20201228.jpg",
-  "/gallery/20210101.jpg",
-  "/gallery/20210110.jpg",
-  "/gallery/20210112.jpg",
+  "/gallery/ZAC04660-2.jpg",
+  "/gallery/ZAC04932-2.jpg",
+  "/gallery/ZAC05114-2.jpg",
+  "/gallery/ZAC04721-2.jpg",
+  "/gallery/ZAC04908-2.jpg",
+  "/gallery/ZAC05064-2.jpg",
+  "/gallery/ZAC05095-3.jpg",
 ];
 
 export const weddingTimeline = [
