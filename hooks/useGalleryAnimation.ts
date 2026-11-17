@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
+function normalizePosition(position: number, distance: number) {
+  if (distance <= 0) return position;
+  return ((position % distance) + distance) % distance;
+}
+
 export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement | null>) {
   const [scrollPosition, setScrollPosition] = useState(0);
   const isGalleryPausedRef = useRef(false);
@@ -19,18 +24,17 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
     if (!galleryRef.current || galleryRef.current.children.length === 0) {
       return 0;
     }
-    const firstChild = galleryRef.current.children[0] as HTMLElement;
-    const style = window.getComputedStyle(galleryRef.current);
-    const gap = parseFloat(style.gap) || 0;
-    const imageWidth = firstChild.offsetWidth;
-    return (imageWidth + gap) * (galleryRef.current.children.length / 2);
+    const children = galleryRef.current.children;
+    const secondSetStart = children[Math.floor(children.length / 2)] as HTMLElement;
+    return secondSetStart.offsetLeft;
   }, [galleryRef]);
 
-  const handleDragStart = useCallback((e: MouseEvent | TouchEvent) => {
+  const handleDragStart = useCallback((e: PointerEvent) => {
     if (isGalleryPausedRef.current) return;
-    
+
     isDraggingRef.current = true;
-    const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const clientX = e.clientX;
     dragStartXRef.current = clientX;
     dragStartPositionRef.current = currentPositionRef.current;
     lastXRef.current = clientX;
@@ -38,12 +42,15 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
     velocityRef.current = 0;
   }, []);
 
-  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
+  const handleDragMove = useCallback((e: PointerEvent) => {
     if (!isDraggingRef.current) return;
 
-    const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
+    const clientX = e.clientX;
     const deltaX = clientX - dragStartXRef.current;
-    const newPosition = dragStartPositionRef.current - deltaX;
+    const newPosition = normalizePosition(
+      dragStartPositionRef.current - deltaX,
+      calculateTotalDistance(),
+    );
 
     // 計算速度
     const now = Date.now();
@@ -56,7 +63,7 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
 
     currentPositionRef.current = newPosition;
     setScrollPosition(newPosition);
-  }, []);
+  }, [calculateTotalDistance]);
 
   const handleDragEnd = useCallback(() => {
     isDraggingRef.current = false;
@@ -66,27 +73,23 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
     const gallery = galleryRef.current;
     if (!gallery) return;
 
-    gallery.addEventListener("mousedown", handleDragStart as any);
-    gallery.addEventListener("touchstart", handleDragStart as any);
-    window.addEventListener("mousemove", handleDragMove as any);
-    window.addEventListener("touchmove", handleDragMove as any);
-    window.addEventListener("mouseup", handleDragEnd);
-    window.addEventListener("touchend", handleDragEnd);
+    gallery.addEventListener("pointerdown", handleDragStart);
+    gallery.addEventListener("pointermove", handleDragMove);
+    gallery.addEventListener("pointerup", handleDragEnd);
+    gallery.addEventListener("pointercancel", handleDragEnd);
 
     return () => {
-      gallery.removeEventListener("mousedown", handleDragStart as any);
-      gallery.removeEventListener("touchstart", handleDragStart as any);
-      window.removeEventListener("mousemove", handleDragMove as any);
-      window.removeEventListener("touchmove", handleDragMove as any);
-      window.removeEventListener("mouseup", handleDragEnd);
-      window.removeEventListener("touchend", handleDragEnd);
+      gallery.removeEventListener("pointerdown", handleDragStart);
+      gallery.removeEventListener("pointermove", handleDragMove);
+      gallery.removeEventListener("pointerup", handleDragEnd);
+      gallery.removeEventListener("pointercancel", handleDragEnd);
     };
-  }, [handleDragStart, handleDragMove, handleDragEnd]);
+  }, [galleryRef, handleDragStart, handleDragMove, handleDragEnd]);
 
   useEffect(() => {
     let animationFrameId: number;
     const totalDistance = calculateTotalDistance();
-    const speed = 0.5;
+    const speed = 2.0; // 自動滾動速度（像素/幀）
     let momentumVelocity = 0;
 
     const animate = () => {
@@ -115,14 +118,10 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
         }
       }
 
-      // 無限環形滾動
-      if (totalDistance > 0) {
-        if (currentPositionRef.current >= totalDistance) {
-          currentPositionRef.current -= totalDistance;
-        } else if (currentPositionRef.current < 0) {
-          currentPositionRef.current += totalDistance;
-        }
-      }
+      currentPositionRef.current = normalizePosition(
+        currentPositionRef.current,
+        totalDistance,
+      );
 
       setScrollPosition(currentPositionRef.current);
       animationFrameId = requestAnimationFrame(animate);
@@ -131,7 +130,7 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
     animationFrameId = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, [calculateTotalDistance]);
+  }, [calculateTotalDistance, galleryRef]);
 
   return { scrollPosition, setPaused };
 }

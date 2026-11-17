@@ -23,10 +23,9 @@ export default function GallerySection({
 
         <div
           ref={galleryRef}
-          className="flex gap-6 cursor-grab active:cursor-grabbing select-none"
+          className="flex gap-6 cursor-grab active:cursor-grabbing select-none touch-pan-y"
           style={{
             transform: `translateX(-${scrollPosition}px)`,
-            transition: "transform 0.016s linear",
           }}
         >
           {[...images, ...images].map((src, index) => (
