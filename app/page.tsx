@@ -23,7 +23,7 @@ export default function Home() {
   const [isOpened, setIsOpened] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
-  const { scrollPosition, setPaused } = useGalleryAnimation(galleryRef);
+  useGalleryAnimation(galleryRef);
 
   // 首次點擊播放音樂
   useEffect(() => {
@@ -105,8 +105,6 @@ export default function Home() {
       <GallerySection
         images={galleryImages}
         galleryRef={galleryRef}
-        scrollPosition={scrollPosition}
-        setPaused={setPaused}
       />
       
       <StorySection stories={storyTimeline} />
