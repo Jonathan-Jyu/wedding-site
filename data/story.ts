@@ -17,6 +17,6 @@ export const storyTimeline = [
     title: "結婚",
     description:
       "經過一路的陪伴與成長，我們決定攜手走進人生下一個階段。未來的日子裡，也請大家繼續多多指教，與我們一起分享更多幸福與喜悅。",
-      image: "/gallery/ZAC05020-3.jpg",
+      image: "/gallery/marry_photo.jpg",
   },
 ];

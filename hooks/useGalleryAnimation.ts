@@ -86,7 +86,7 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
   useEffect(() => {
     let animationFrameId: number;
     const totalDistance = calculateTotalDistance();
-    const speed = 0.2;
+    const speed = 0.5;
     let momentumVelocity = 0;
 
     const animate = () => {

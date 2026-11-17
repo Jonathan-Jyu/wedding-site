@@ -23,6 +23,7 @@ export const galleryImages = [
   "/gallery/ZAC04660-2.jpg",
   "/gallery/ZAC04932-2.jpg",
   "/gallery/ZAC05114-2.jpg",
+  "/gallery/ZAC05020-3.jpg",
   "/gallery/ZAC04721-2.jpg",
   "/gallery/ZAC04908-2.jpg",
   "/gallery/ZAC05064-2.jpg",
