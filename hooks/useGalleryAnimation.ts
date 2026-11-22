@@ -1,4 +1,25 @@
-import { useLayoutEffect, useRef, useCallback } from "react";
+import { useLayoutEffect } from "react";
+
+const AUTO_SPEED = 120; // 2px per frame at 60Hz, expressed in px/s.
+const MAX_FRAME_GAP_MS = 250;
+const MAX_FRAME_STEP_MS = 1000 / 30;
+const DRAG_THRESHOLD_PX = 8;
+const VELOCITY_MAX_AGE_MS = 80;
+const MIN_FLING_SPEED = 100;
+const MAX_FLING_SPEED = 1800;
+const FLING_SPEED_MULTIPLIER = 3;
+const MOMENTUM_DECAY_RATE = -Math.log(0.95) * 60;
+const MOMENTUM_STOP_THRESHOLD = 6;
+
+type Gesture = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  lastX: number;
+  lastMoveTime: number;
+  velocity: number;
+  isDragging: boolean;
+};
 
 function normalizePosition(position: number, distance: number) {
   if (distance <= 0) return position;
@@ -6,135 +27,187 @@ function normalizePosition(position: number, distance: number) {
 }
 
 export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement | null>) {
-  const currentPositionRef = useRef(0);
-  const loopDistanceRef = useRef(0);
-  const isDraggingRef = useRef(false);
-  const dragStartXRef = useRef(0);
-  const dragStartPositionRef = useRef(0);
-  const velocityRef = useRef(0);
-  const lastXRef = useRef(0);
-  const lastTimeRef = useRef(0);
-
-  const calculateTotalDistance = useCallback(() => {
-    if (!galleryRef.current || galleryRef.current.children.length === 0) {
-      return 0;
-    }
-    const children = galleryRef.current.children;
-    const setSize = children.length / 3;
-    const firstSetStart = children[0] as HTMLElement;
-    const secondSetStart = children[setSize] as HTMLElement;
-    return secondSetStart.getBoundingClientRect().left - firstSetStart.getBoundingClientRect().left;
-  }, [galleryRef]);
-
-  const handleDragStart = useCallback((e: PointerEvent) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-
-    isDraggingRef.current = true;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const clientX = e.clientX;
-    dragStartXRef.current = clientX;
-    dragStartPositionRef.current = currentPositionRef.current;
-    lastXRef.current = clientX;
-    lastTimeRef.current = Date.now();
-    velocityRef.current = 0;
-  }, []);
-
-  const handleDragMove = useCallback((e: PointerEvent) => {
-    if (!isDraggingRef.current) return;
-
-    const clientX = e.clientX;
-    const deltaX = clientX - dragStartXRef.current;
-    const newPosition = normalizePosition(
-      dragStartPositionRef.current - deltaX,
-      loopDistanceRef.current,
-    );
-
-    // 計算速度
-    const now = Date.now();
-    const timeDelta = now - lastTimeRef.current;
-    if (timeDelta > 0) {
-      velocityRef.current = (lastXRef.current - clientX) / timeDelta;
-    }
-    lastXRef.current = clientX;
-    lastTimeRef.current = now;
-
-    currentPositionRef.current = newPosition;
-    galleryRef.current!.style.transform = `translate3d(-${newPosition}px, 0, 0)`;
-  }, [galleryRef]);
-
-  const handleDragEnd = useCallback(() => {
-    isDraggingRef.current = false;
-  }, []);
-
   useLayoutEffect(() => {
     const gallery = galleryRef.current;
-    if (!gallery) return;
+    const viewport = gallery?.parentElement;
+    if (!gallery || !viewport) return;
 
-    const updateLoopDistance = () => {
-      const nextDistance = calculateTotalDistance();
-      const previousDistance = loopDistanceRef.current;
-      if (nextDistance <= 0) return;
+    let position = 0;
+    let renderedPosition = 0;
+    let loopDistance = 0;
+    let gesture: Gesture | null = null;
+    let pendingDragDelta = 0;
+    let momentumVelocity: number | null = null;
+    let previousTimestamp: number | null = null;
+    let animationFrameId: number;
 
-      if (previousDistance > 0) {
-        const progress = (currentPositionRef.current - previousDistance) / previousDistance;
-        currentPositionRef.current = nextDistance + progress * nextDistance;
-      } else {
-        currentPositionRef.current = nextDistance;
-      }
+    const renderPosition = () => {
+      position = normalizePosition(position, loopDistance);
+      if (position === renderedPosition) return;
 
-      loopDistanceRef.current = nextDistance;
-      currentPositionRef.current = normalizePosition(
-        currentPositionRef.current,
-        nextDistance,
-      );
-      gallery.style.transform = `translate3d(-${currentPositionRef.current}px, 0, 0)`;
+      gallery.style.transform = `translate3d(${-position}px, 0, 0)`;
+      renderedPosition = position;
     };
 
-    updateLoopDistance();
-    const resizeObserver = new ResizeObserver(updateLoopDistance);
-    resizeObserver.observe(gallery);
+    const updateLoopDistance = () => {
+      const children = gallery.children;
+      if (children.length === 0) return;
 
-    const speed = 2.0;
-    let animationFrameId: number;
-    let momentumVelocity = 0;
+      const firstSetStart = children[0];
+      const secondSetStart = children[children.length / 3];
+      const nextDistance = secondSetStart.getBoundingClientRect().left - firstSetStart.getBoundingClientRect().left;
+      if (nextDistance <= 0) return;
 
-    const animate = () => {
-      const distance = loopDistanceRef.current;
-      if (distance > 0 && !isDraggingRef.current) {
-        if (Math.abs(momentumVelocity) > 0.01) {
-          currentPositionRef.current += momentumVelocity;
-          momentumVelocity *= 0.95;
-        } else if (Math.abs(velocityRef.current) < 0.1) {
-          currentPositionRef.current += speed;
-        } else {
-          momentumVelocity = velocityRef.current * 50;
-          velocityRef.current = 0;
+      if (loopDistance > 0) {
+        const progress = (position - loopDistance) / loopDistance;
+        position = nextDistance + progress * nextDistance;
+      } else {
+        position = nextDistance;
+      }
+      loopDistance = nextDistance;
+    };
+
+    const animate = (timestamp: number) => {
+      const elapsed = previousTimestamp === null ? 0 : timestamp - previousTimestamp;
+      const dt = elapsed > MAX_FRAME_GAP_MS ? 0 : Math.min(elapsed, MAX_FRAME_STEP_MS) / 1000;
+      previousTimestamp = timestamp;
+
+      if (pendingDragDelta !== 0) {
+        position += pendingDragDelta;
+        pendingDragDelta = 0;
+      } else if (!gesture && loopDistance > 0 && dt > 0) {
+        position += AUTO_SPEED * dt;
+        if (momentumVelocity !== null) {
+          // Integrate exponential decay toward autoplay speed over this frame.
+          const speedDifference = momentumVelocity - AUTO_SPEED;
+          const decay = Math.exp(-MOMENTUM_DECAY_RATE * dt);
+          position += speedDifference * (1 - decay) / MOMENTUM_DECAY_RATE;
+          const remainingSpeed = speedDifference * decay;
+          momentumVelocity = Math.abs(remainingSpeed) <= MOMENTUM_STOP_THRESHOLD
+            ? null
+            : AUTO_SPEED + remainingSpeed;
         }
-
-        currentPositionRef.current = normalizePosition(
-          currentPositionRef.current,
-          distance,
-        );
-        gallery.style.transform = `translate3d(-${currentPositionRef.current}px, 0, 0)`;
       }
 
+      renderPosition();
       animationFrameId = requestAnimationFrame(animate);
     };
 
+    const handlePointerDown = (event: PointerEvent) => {
+      if (gesture || !event.isPrimary || event.button !== 0 || loopDistance <= 0) return;
+
+      previousTimestamp = null;
+      momentumVelocity = null;
+      gesture = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastMoveTime: event.timeStamp,
+        velocity: 0,
+        isDragging: false,
+      };
+    };
+
+    const recordDrag = (active: Gesture, event: PointerEvent) => {
+      const delta = active.lastX - event.clientX;
+      if (delta === 0) return;
+
+      pendingDragDelta += delta;
+      active.lastX = event.clientX;
+      const elapsed = event.timeStamp - active.lastMoveTime;
+      if (elapsed > 0) {
+        active.velocity = elapsed <= VELOCITY_MAX_AGE_MS ? delta * 1000 / elapsed : 0;
+        active.lastMoveTime = event.timeStamp;
+      }
+    };
+
+    const endGesture = (release?: PointerEvent) => {
+      if (!gesture) return;
+
+      const active = gesture;
+      gesture = null;
+      previousTimestamp = null;
+      momentumVelocity = null;
+
+      if (release && active.isDragging) {
+        recordDrag(active, release);
+        const velocity = active.velocity;
+        if (release.timeStamp - active.lastMoveTime <= VELOCITY_MAX_AGE_MS && Math.abs(velocity) >= MIN_FLING_SPEED) {
+          const flingSpeed = Math.min(Math.abs(velocity) * FLING_SPEED_MULTIPLIER, MAX_FLING_SPEED);
+          momentumVelocity = Math.sign(velocity) * flingSpeed;
+        }
+      }
+
+      if (viewport.hasPointerCapture(active.pointerId)) {
+        viewport.releasePointerCapture(active.pointerId);
+      }
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const active = gesture;
+      if (!active || event.pointerId !== active.pointerId) return;
+
+      if (event.pointerType === "mouse" && (event.buttons & 1) === 0) {
+        endGesture();
+        return;
+      }
+
+      if (!active.isDragging) {
+        const dx = Math.abs(event.clientX - active.startX);
+        const dy = Math.abs(event.clientY - active.startY);
+        if (Math.max(dx, dy) < DRAG_THRESHOLD_PX) return;
+        if (dy >= dx) {
+          endGesture();
+          return;
+        }
+
+        active.isDragging = true;
+        viewport.setPointerCapture(event.pointerId);
+      }
+
+      recordDrag(active, event);
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId === gesture?.pointerId) endGesture(event);
+    };
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      if (event.pointerId === gesture?.pointerId) endGesture();
+    };
+
+    const handleLostPointerCapture = (event: PointerEvent) => {
+      // A touch may lose its implicit capture when we transfer it to the viewport.
+      if (event.target !== viewport && viewport.hasPointerCapture(event.pointerId)) return;
+      handlePointerCancel(event);
+    };
+
+    const handleBlur = () => endGesture();
+
+    updateLoopDistance();
+    renderPosition();
+    const resizeObserver = new ResizeObserver(updateLoopDistance);
+    resizeObserver.observe(gallery);
     animationFrameId = requestAnimationFrame(animate);
 
-    gallery.addEventListener("pointerdown", handleDragStart);
-    gallery.addEventListener("pointermove", handleDragMove);
-    gallery.addEventListener("pointerup", handleDragEnd);
-    gallery.addEventListener("pointercancel", handleDragEnd);
+    viewport.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("pointermove", handlePointerMove, true);
+    window.addEventListener("pointerup", handlePointerUp, true);
+    window.addEventListener("pointercancel", handlePointerCancel, true);
+    window.addEventListener("lostpointercapture", handleLostPointerCapture, true);
+    window.addEventListener("blur", handleBlur);
 
     return () => {
       resizeObserver.disconnect();
       cancelAnimationFrame(animationFrameId);
-      gallery.removeEventListener("pointerdown", handleDragStart);
-      gallery.removeEventListener("pointermove", handleDragMove);
-      gallery.removeEventListener("pointerup", handleDragEnd);
-      gallery.removeEventListener("pointercancel", handleDragEnd);
+      viewport.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("pointermove", handlePointerMove, true);
+      window.removeEventListener("pointerup", handlePointerUp, true);
+      window.removeEventListener("pointercancel", handlePointerCancel, true);
+      window.removeEventListener("lostpointercapture", handleLostPointerCapture, true);
+      window.removeEventListener("blur", handleBlur);
+      endGesture();
     };
-  }, [calculateTotalDistance, galleryRef, handleDragStart, handleDragMove, handleDragEnd]);
+  }, [galleryRef]);
 }

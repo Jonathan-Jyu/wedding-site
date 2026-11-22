@@ -14,13 +14,13 @@ export default function GallerySection({
 }: GallerySectionProps) {
   return (
     <section id="gallery" className="overflow-hidden py-20">
-      <div className="relative">
+      <div className="relative cursor-grab select-none touch-pan-y touch-pinch-zoom active:cursor-grabbing">
         <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-24 bg-gradient-to-r from-[#faf7f2] to-transparent" />
         <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-24 bg-gradient-to-l from-[#faf7f2] to-transparent" />
 
         <div
           ref={galleryRef}
-          className="flex gap-6 cursor-grab active:cursor-grabbing select-none touch-pan-y"
+          className="flex gap-6"
         >
           {[...images, ...images, ...images].map((src, index) => (
             <motion.div
