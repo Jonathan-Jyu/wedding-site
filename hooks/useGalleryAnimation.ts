@@ -1,4 +1,4 @@
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 const AUTO_SPEED = 120; // 2px per frame at 60Hz, expressed in px/s.
 const MAX_FRAME_GAP_MS = 250;
@@ -10,6 +10,7 @@ const MAX_FLING_SPEED = 1800;
 const FLING_SPEED_MULTIPLIER = 3;
 const MOMENTUM_DECAY_RATE = -Math.log(0.95) * 60;
 const MOMENTUM_STOP_THRESHOLD = 6;
+const START_VISIBILITY_RATIO = 0.01;
 
 type Gesture = {
   pointerId: number;
@@ -21,12 +22,16 @@ type Gesture = {
   isDragging: boolean;
 };
 
-function normalizePosition(position: number, distance: number) {
-  if (distance <= 0) return position;
-  return distance + (((position - distance) % distance) + distance) % distance;
+function wrapPosition(position: number, distance: number, start = 0) {
+  return start + (((position - start) % distance) + distance) % distance;
 }
 
-export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement | null>) {
+export function useGalleryAnimation(
+  galleryRef: React.RefObject<HTMLDivElement | null>,
+  isInvitationOpen: boolean,
+) {
+  const updateInvitation = useRef<((isOpen: boolean) => void) | null>(null);
+
   useLayoutEffect(() => {
     const gallery = galleryRef.current;
     const viewport = gallery?.parentElement;
@@ -35,39 +40,49 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
     let position = 0;
     let renderedPosition = 0;
     let loopDistance = 0;
+    let loopStart = 0;
+    let viewportWidth = 0;
+    let invitationOpen = false;
+    let inView = false;
+    let disposed = false;
     let gesture: Gesture | null = null;
     let pendingDragDelta = 0;
     let momentumVelocity: number | null = null;
     let previousTimestamp: number | null = null;
-    let animationFrameId: number;
+    let animationFrameId: number | null = null;
+
+    const canAnimate = () => !disposed && invitationOpen && inView && !document.hidden;
+
+    const requestFrame = () => {
+      const needsFrame = pendingDragDelta !== 0 || position !== renderedPosition || (!gesture && loopDistance > 0);
+      if (animationFrameId === null && canAnimate() && needsFrame) {
+        animationFrameId = requestAnimationFrame(animate);
+      }
+    };
+
+    const cancelFrame = () => {
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      previousTimestamp = null;
+    };
 
     const renderPosition = () => {
-      position = normalizePosition(position, loopDistance);
+      if (loopDistance > 0) position = wrapPosition(position, loopDistance, loopStart);
       if (position === renderedPosition) return;
 
       gallery.style.transform = `translate3d(${-position}px, 0, 0)`;
       renderedPosition = position;
     };
 
-    const updateLoopDistance = () => {
-      const children = gallery.children;
-      if (children.length === 0) return;
-
-      const firstSetStart = children[0];
-      const secondSetStart = children[children.length / 3];
-      const nextDistance = secondSetStart.getBoundingClientRect().left - firstSetStart.getBoundingClientRect().left;
-      if (nextDistance <= 0) return;
-
-      if (loopDistance > 0) {
-        const progress = (position - loopDistance) / loopDistance;
-        position = nextDistance + progress * nextDistance;
-      } else {
-        position = nextDistance;
-      }
-      loopDistance = nextDistance;
-    };
-
     const animate = (timestamp: number) => {
+      animationFrameId = null;
+      if (!canAnimate()) {
+        pausePlayback();
+        return;
+      }
+
       const elapsed = previousTimestamp === null ? 0 : timestamp - previousTimestamp;
       const dt = elapsed > MAX_FRAME_GAP_MS ? 0 : Math.min(elapsed, MAX_FRAME_STEP_MS) / 1000;
       previousTimestamp = timestamp;
@@ -90,13 +105,13 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
       }
 
       renderPosition();
-      animationFrameId = requestAnimationFrame(animate);
+      requestFrame();
     };
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (gesture || !event.isPrimary || event.button !== 0 || loopDistance <= 0) return;
+      if (!canAnimate() || gesture || !event.isPrimary || event.button !== 0 || loopDistance <= 0) return;
 
-      previousTimestamp = null;
+      cancelFrame();
       momentumVelocity = null;
       gesture = {
         pointerId: event.pointerId,
@@ -107,6 +122,7 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
         velocity: 0,
         isDragging: false,
       };
+      requestFrame();
     };
 
     const recordDrag = (active: Gesture, event: PointerEvent) => {
@@ -142,6 +158,54 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
       if (viewport.hasPointerCapture(active.pointerId)) {
         viewport.releasePointerCapture(active.pointerId);
       }
+      requestFrame();
+    };
+
+    const pausePlayback = () => {
+      cancelFrame();
+      pendingDragDelta = 0;
+      momentumVelocity = null;
+      endGesture();
+    };
+
+    const syncPlayback = () => {
+      if (canAnimate()) requestFrame();
+      else pausePlayback();
+    };
+
+    const cancelDragForResize = () => {
+      if (!gesture && pendingDragDelta === 0) return;
+
+      pendingDragDelta = 0;
+      momentumVelocity = null;
+      endGesture();
+    };
+
+    const [firstGroup, secondGroup] = Array.from(gallery.children);
+    const updateLoopDistance = () => {
+      if (disposed) return;
+
+      const width = viewport.getBoundingClientRect().width;
+      const firstBounds = firstGroup?.getBoundingClientRect();
+      const secondBounds = secondGroup?.getBoundingClientRect();
+      const groupWidth = firstBounds?.width ?? 0;
+      // Group bounds ignore card hover. Subtracting their origins includes the gap
+      // between groups and cancels the track's shared translation.
+      const stride = firstBounds && secondBounds ? secondBounds.left - firstBounds.left : 0;
+      const availableStart = stride + groupWidth - width;
+      const nextDistance = groupWidth > 0 && stride > 0 && availableStart >= 0 ? stride : 0;
+      // Keep the middle copy as the loop origin when a full cycle still fits.
+      const nextStart = Math.min(nextDistance, Math.max(0, availableStart));
+      if (nextDistance === loopDistance && nextStart === loopStart && width === viewportWidth) return;
+
+      const phase = loopDistance > 0 ? wrapPosition(position, loopDistance) / loopDistance : 0;
+      cancelDragForResize();
+      cancelFrame();
+      loopDistance = nextDistance;
+      loopStart = nextStart;
+      viewportWidth = width;
+      position = nextDistance > 0 ? wrapPosition(phase * nextDistance, nextDistance, nextStart) : 0;
+      requestFrame();
     };
 
     const handlePointerMove = (event: PointerEvent) => {
@@ -167,6 +231,7 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
       }
 
       recordDrag(active, event);
+      requestFrame();
     };
 
     const handlePointerUp = (event: PointerEvent) => {
@@ -188,8 +253,24 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
     updateLoopDistance();
     renderPosition();
     const resizeObserver = new ResizeObserver(updateLoopDistance);
-    resizeObserver.observe(gallery);
-    animationFrameId = requestAnimationFrame(animate);
+    resizeObserver.observe(viewport);
+    if (firstGroup) resizeObserver.observe(firstGroup);
+
+    const intersectionObserver = new IntersectionObserver((entries) => {
+      const entry = entries.at(-1);
+      if (!entry || disposed) return;
+
+      // Start after entering a small band. Keep playing until leaving the viewport.
+      inView = entry.isIntersecting && entry.intersectionRatio > 0
+        && (inView || entry.intersectionRatio >= START_VISIBILITY_RATIO);
+      syncPlayback();
+    }, { threshold: [0, START_VISIBILITY_RATIO] });
+    intersectionObserver.observe(viewport);
+
+    updateInvitation.current = (isOpen) => {
+      invitationOpen = isOpen;
+      syncPlayback();
+    };
 
     viewport.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("pointermove", handlePointerMove, true);
@@ -197,17 +278,27 @@ export function useGalleryAnimation(galleryRef: React.RefObject<HTMLDivElement |
     window.addEventListener("pointercancel", handlePointerCancel, true);
     window.addEventListener("lostpointercapture", handleLostPointerCapture, true);
     window.addEventListener("blur", handleBlur);
+    window.addEventListener("resize", cancelDragForResize);
+    document.addEventListener("visibilitychange", syncPlayback);
 
     return () => {
+      disposed = true;
+      updateInvitation.current = null;
       resizeObserver.disconnect();
-      cancelAnimationFrame(animationFrameId);
+      intersectionObserver.disconnect();
+      document.removeEventListener("visibilitychange", syncPlayback);
       viewport.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("pointermove", handlePointerMove, true);
       window.removeEventListener("pointerup", handlePointerUp, true);
       window.removeEventListener("pointercancel", handlePointerCancel, true);
       window.removeEventListener("lostpointercapture", handleLostPointerCapture, true);
       window.removeEventListener("blur", handleBlur);
-      endGesture();
+      window.removeEventListener("resize", cancelDragForResize);
+      pausePlayback();
     };
   }, [galleryRef]);
+
+  useLayoutEffect(() => {
+    updateInvitation.current?.(isInvitationOpen);
+  }, [galleryRef, isInvitationOpen]);
 }

@@ -23,7 +23,7 @@ export default function Home() {
   const [isOpened, setIsOpened] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
-  useGalleryAnimation(galleryRef);
+  useGalleryAnimation(galleryRef, isOpened);
 
   // 首次點擊播放音樂
   useEffect(() => {

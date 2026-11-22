@@ -22,30 +22,34 @@ export default function GallerySection({
           ref={galleryRef}
           className="flex gap-6"
         >
-          {[...images, ...images, ...images].map((src, index) => (
-            <motion.div
-              key={index}
-              whileHover={{
-                scale: 1.03,
-                y: -8,
-              }}
-              transition={{
-                duration: 0.35,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="relative h-[420px] w-[280px] shrink-0 overflow-hidden rounded-[2rem] shadow-2xl shadow-stone-200/50 md:h-[520px] md:w-[380px]"
-              draggable={false}
-            >
-              <Image
-                src={src}
-                alt={`gallery-${index}`}
-                fill
-                sizes="(max-width: 767px) 280px, 380px"
-                loading={index < images.length ? "lazy" : "eager"}
-                draggable={false}
-                className="select-none object-cover transition-all duration-700 hover:brightness-110"
-              />
-            </motion.div>
+          {[0, 1, 2].map((group) => (
+            <div key={group} className="flex shrink-0 gap-6">
+              {images.map((src, index) => (
+                <motion.div
+                  key={index}
+                  whileHover={{
+                    scale: 1.03,
+                    y: -8,
+                  }}
+                  transition={{
+                    duration: 0.35,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                  className="relative h-[420px] w-[280px] shrink-0 overflow-hidden rounded-[2rem] shadow-2xl shadow-stone-200/50 md:h-[520px] md:w-[380px]"
+                  draggable={false}
+                >
+                  <Image
+                    src={src}
+                    alt={`gallery-${group * images.length + index}`}
+                    fill
+                    sizes="(max-width: 767px) 280px, 380px"
+                    loading={group === 0 ? "lazy" : "eager"}
+                    draggable={false}
+                    className="select-none object-cover transition-all duration-700 hover:brightness-110"
+                  />
+                </motion.div>
+              ))}
+            </div>
           ))}
         </div>
       </div>
