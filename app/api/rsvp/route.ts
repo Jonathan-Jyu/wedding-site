@@ -16,16 +16,7 @@ curl -X POST http://192.168.4.31:3000/api/rsvp \
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getTimeInTaipei } from '@/lib/timezone';
-
-interface RSVPRequest {
-  name: string;
-  phone: string;
-  attending: boolean;
-  guests: number;
-  vegetarian: number;
-  children: number;
-  message: string;
-}
+import { validateRSVP } from '@/lib/rsvp-validation';
 
 interface ErrorResponse {
   success: false;
@@ -72,24 +63,23 @@ async function initializeSheets() {
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
+  let input: unknown;
   try {
-    const body: RSVPRequest = await request.json();
+    input = await request.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: '請提供有效的 JSON 資料' },
+      { status: 400 }
+    );
+  }
 
-    // Validate request body
-    if (
-      !body.name ||
-      !body.phone ||
-      body.attending === undefined ||
-      body.guests === undefined ||
-      body.vegetarian === undefined ||
-      body.children === undefined
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields' } as ErrorResponse,
-        { status: 400 }
-      );
-    }
+  const result = validateRSVP(input);
+  if (!result.success) {
+    return NextResponse.json(result, { status: 400 });
+  }
+  const body = result.data;
 
+  try {
     const { sheets, sheetId } = await initializeSheets();
 
     // Get current Taiwan time
@@ -100,12 +90,12 @@ export async function POST(
       [
         taipeiTime, // 建立時間
         body.name, // 姓名
-        `'${body.phone}`, // 聯絡電話
+        body.phone, // 聯絡電話
         body.attending ? '是' : '否', // 是否出席家宴
         body.guests, // 出席人數(包含自己)
         body.vegetarian, // 素食人數
         body.children, // 小孩人數(需兒童座椅或餐具)
-        body.message || '', // 想說的話
+        body.message, // 想說的話
       ],
     ];
 
@@ -113,7 +103,7 @@ export async function POST(
     await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
       range: '工作表1!A:H',
-      valueInputOption: 'USER_ENTERED',
+      valueInputOption: 'RAW',
       requestBody: {
         values,
       },
