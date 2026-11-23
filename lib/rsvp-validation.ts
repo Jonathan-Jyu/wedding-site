@@ -20,7 +20,7 @@ type ValidationResult =
   | { success: true; data: ValidatedRSVP }
   | { success: false; error: string };
 
-function isCount(value: unknown, min: number, max: number): value is number {
+function isCount(value: unknown, min: number, max = Infinity): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
 }
 
@@ -52,11 +52,17 @@ export function validateRSVP(input: unknown): ValidationResult {
       error: attending ? "出席人數須為 1 到 10 的整數" : "未出席時，出席人數須為 0",
     };
   }
-  if (!isCount(vegetarian, 0, guests)) {
-    return { success: false, error: "素食人數須為非負整數，且不得超過出席人數" };
+  if (!isCount(vegetarian, 0)) {
+    return { success: false, error: "請填寫正確的素食人數。" };
   }
-  if (!isCount(children, 0, guests)) {
-    return { success: false, error: "兒童人數須為非負整數，且不得超過出席人數" };
+  if (vegetarian > guests) {
+    return { success: false, error: "素食人數不能超過出席人數，請再確認一下喔！" };
+  }
+  if (!isCount(children, 0)) {
+    return { success: false, error: "請填寫正確的兒童人數。" };
+  }
+  if (children > guests) {
+    return { success: false, error: "兒童人數不能超過出席人數，請再確認一下喔！" };
   }
 
   const message = body.message === undefined ? "" : body.message;

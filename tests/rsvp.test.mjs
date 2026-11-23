@@ -86,7 +86,7 @@ function makeRoute() {
 
 const route = makeRoute();
 
-async function assertRejected(body) {
+async function assertRejected(body, expectedError) {
   const appendCount = route.appends.length;
   const clientCount = route.sheetClients;
   const response = await route.post(body);
@@ -96,6 +96,9 @@ async function assertRejected(body) {
   assert.equal(result.success, false);
   assert.equal(typeof result.error, "string");
   assert.ok(result.error.length > 0);
+  if (expectedError !== undefined) {
+    assert.equal(result.error, expectedError);
+  }
   assert.ok(!result.error.includes(valid.phone) && !result.error.includes(valid.name));
   assert.equal(route.sheetClients, clientCount);
   assert.equal(route.appends.length, appendCount);
@@ -192,19 +195,32 @@ const invalidFields = {
   "negative guests": { guests: -1 },
   "fractional guests": { guests: 1.5 },
   "string guests": { guests: "3" },
-  "vegetarian count over guests": { vegetarian: 4 },
-  "children count over guests": { children: 4 },
-  "negative vegetarian count": { vegetarian: -1 },
-  "fractional children count": { children: 1.5 },
   "declining with guests": { attending: false, guests: 1, vegetarian: 0, children: 0 },
-  "declining with vegetarian count": { attending: false, guests: 0, vegetarian: 1, children: 0 },
-  "declining with children count": { attending: false, guests: 0, vegetarian: 0, children: 1 },
   "null message": { message: null },
   "object message": { message: {} },
   "long message": { message: "文".repeat(2001) },
 };
 for (const [label, overrides] of Object.entries(invalidFields)) {
   test(`rejects ${label} before Sheets`, () => assertRejected(JSON.stringify({ ...valid, ...overrides })));
+}
+
+for (const [field, label] of [["vegetarian", "素食"], ["children", "兒童"]]) {
+  const exceedsGuests = `${label}人數不能超過出席人數，請再確認一下喔！`;
+  const invalidCount = `請填寫正確的${label}人數。`;
+
+  test(`reports ${field} count above the guest count`, () =>
+    assertRejected(JSON.stringify({ ...valid, [field]: 4 }), exceedsGuests));
+
+  test(`reports a nonzero ${field} count when declining`, () =>
+    assertRejected(
+      JSON.stringify({ ...valid, attending: false, guests: 0, vegetarian: 0, children: 0, [field]: 1 }),
+      exceedsGuests,
+    ));
+
+  for (const value of [-1, 1.5, "2"]) {
+    test(`reports invalid ${field} count ${JSON.stringify(value)}`, () =>
+      assertRejected(JSON.stringify({ ...valid, [field]: value }), invalidCount));
+  }
 }
 
 for (const field of ["name", "phone", "attending", "guests", "vegetarian", "children"]) {
