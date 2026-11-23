@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 
 // 調整 Gallery 的自動播放速度、拖曳閾值、最大幀間隔等參數，以提供更流暢的動畫體驗
-const AUTO_SPEED = 60; // 2px per frame at 60Hz, expressed in px/s.
+const AUTO_SPEED = 30; // 2px per frame at 60Hz, expressed in px/s.
 const MAX_FRAME_GAP_MS = 250;
 const MAX_FRAME_STEP_MS = 1000 / 30;
 const DRAG_THRESHOLD_PX = 8;
