@@ -13,29 +13,24 @@ curl -X POST http://192.168.4.31:3000/api/rsvp \
 */
 
 
+import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getTimeInTaipei } from '@/lib/timezone';
 import { validateRSVP } from '@/lib/rsvp-validation';
-
-interface ErrorResponse {
-  success: false;
-  error: string;
-}
+import { RSVP_ERRORS, type RSVPErrorCode, type RSVPErrorResponse } from '@/lib/rsvp-errors';
 
 interface SuccessResponse {
   success: true;
 }
 
-async function initializeSheets() {
+function initializeSheets() {
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
   const sheetId = process.env.GOOGLE_SHEET_ID;
 
-  if (!privateKey || !clientEmail || !sheetId) {
-    throw new Error(
-      'Missing required environment variables: GOOGLE_PRIVATE_KEY, GOOGLE_CLIENT_EMAIL, or GOOGLE_SHEET_ID'
-    );
+  if (!privateKey?.trim() || !clientEmail?.trim() || !sheetId?.trim()) {
+    throw new Error('Missing RSVP Sheets configuration');
   }
 
   const auth = new google.auth.GoogleAuth({
@@ -50,6 +45,7 @@ async function initializeSheets() {
       // auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
     },
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    clientOptions: { forceRefreshOnFailure: false },
   });
 
   const sheets = google.sheets({ version: 'v4', auth });
@@ -60,68 +56,97 @@ async function initializeSheets() {
   };
 }
 
+function getUpstreamStatus(error: unknown): number | undefined {
+  try {
+    const status: unknown = (error as { response?: { status?: unknown } } | null)?.response?.status;
+    if (typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599) {
+      return status;
+    }
+  } catch {
+    // An unexpected exception shape must not interfere with the response.
+  }
+}
+
+const rejectedAppendStatuses = new Set([400, 403, 404, 405, 413, 415, 422, 429]);
+
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
+): Promise<NextResponse<SuccessResponse | RSVPErrorResponse>> {
+  const requestId = randomUUID();
+  const startedAt = performance.now();
+
+  function failure(code: RSVPErrorCode, error: string = RSVP_ERRORS[code].message) {
+    return NextResponse.json<RSVPErrorResponse>(
+      { success: false, code, error, requestId },
+      { status: RSVP_ERRORS[code].status }
+    );
+  }
+
+  function logFailure(code: RSVPErrorCode, upstreamStatus?: number) {
+    console.error({
+      event: 'rsvp_submission_failed',
+      requestId,
+      code,
+      durationMs: Math.round(performance.now() - startedAt),
+      ...(upstreamStatus === undefined ? {} : { upstreamStatus }),
+    });
+    return failure(code);
+  }
+
   let input: unknown;
   try {
     input = await request.json();
   } catch {
-    return NextResponse.json(
-      { success: false, error: '請提供有效的 JSON 資料' },
-      { status: 400 }
-    );
+    return failure('RSVP_INVALID_JSON');
   }
 
   const result = validateRSVP(input);
   if (!result.success) {
-    return NextResponse.json(result, { status: 400 });
+    return failure('RSVP_VALIDATION_ERROR', result.error);
   }
   const body = result.data;
 
+  let client: ReturnType<typeof initializeSheets>;
+  let taipeiTime: string;
   try {
-    const { sheets, sheetId } = await initializeSheets();
+    client = initializeSheets();
+    taipeiTime = getTimeInTaipei();
+  } catch (error) {
+    return logFailure('RSVP_CONFIGURATION_ERROR', getUpstreamStatus(error));
+  }
 
-    // Get current Taiwan time
-    const taipeiTime = getTimeInTaipei();
+  const { sheets, sheetId } = client;
+  const values = [[
+    taipeiTime, // 建立時間
+    body.name, // 姓名
+    body.phone, // 聯絡電話
+    body.attending ? '是' : '否', // 是否出席家宴
+    body.guests, // 出席人數(包含自己)
+    body.vegetarian, // 素食人數
+    body.children, // 小孩人數(需兒童座椅或餐具)
+    body.message, // 想說的話
+  ]];
 
-    // Prepare row data in the specified column order
-    const values = [
-      [
-        taipeiTime, // 建立時間
-        body.name, // 姓名
-        body.phone, // 聯絡電話
-        body.attending ? '是' : '否', // 是否出席家宴
-        body.guests, // 出席人數(包含自己)
-        body.vegetarian, // 素食人數
-        body.children, // 小孩人數(需兒童座椅或餐具)
-        body.message, // 想說的話
-      ],
-    ];
-
-    // Append to sheet
-    await sheets.spreadsheets.values.append({
+  try {
+    const response = await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
       range: '工作表1!A:H',
       valueInputOption: 'RAW',
       requestBody: {
         values,
       },
-    });
+    }, { retry: false, redirect: 'error', timeout: 10_000 });
 
-    return NextResponse.json({ success: true } as SuccessResponse);
+    if (response?.data?.updates?.updatedRows !== 1) {
+      return logFailure('RSVP_SUBMISSION_UNCERTAIN');
+    }
+    return NextResponse.json<SuccessResponse>({ success: true });
   } catch (error) {
-    console.error('RSVP API Error:', error);
-
-    const errorMessage =
-      error instanceof Error ? error.message : 'An unknown error occurred';
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage,
-      } as ErrorResponse,
-      { status: 500 }
-    );
+    const upstreamStatus = getUpstreamStatus(error);
+    if (upstreamStatus === 401) return logFailure('RSVP_CONFIGURATION_ERROR', upstreamStatus);
+    if (upstreamStatus !== undefined && rejectedAppendStatuses.has(upstreamStatus)) {
+      return logFailure('RSVP_SUBMISSION_FAILED', upstreamStatus);
+    }
+    return logFailure('RSVP_SUBMISSION_UNCERTAIN', upstreamStatus);
   }
 }

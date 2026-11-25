@@ -1,3 +1,5 @@
+import { RSVP_VALIDATION_MESSAGES as messages } from "./rsvp-errors";
+
 const MAX_NAME_LENGTH = 100;
 const MAX_PHONE_LENGTH = 32;
 const MAX_MESSAGE_LENGTH = 2000;
@@ -26,48 +28,48 @@ function isCount(value: unknown, min: number, max = Infinity): value is number {
 
 export function validateRSVP(input: unknown): ValidationResult {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    return { success: false, error: "請提供有效的 RSVP 資料" };
+    return { success: false, error: messages.payload };
   }
 
   const body = input as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
   if (!name || name.length > MAX_NAME_LENGTH) {
-    return { success: false, error: "請輸入姓名，最多 100 個字元" };
+    return { success: false, error: messages.name };
   }
 
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
   const phoneMatch = phone.length <= MAX_PHONE_LENGTH ? PHONE_PATTERN.exec(phone.normalize("NFKC")) : null;
   const phoneDigits = phoneMatch?.[1].replace(/\D/g, "").length ?? 0;
   if (phoneDigits < 7 || phoneDigits > 15) {
-    return { success: false, error: "請輸入有效的聯絡電話，最多 32 個字元" };
+    return { success: false, error: messages.phone };
   }
 
   const { attending, guests, vegetarian, children } = body;
   if (typeof attending !== "boolean") {
-    return { success: false, error: "請選擇是否出席" };
+    return { success: false, error: messages.attending };
   }
   if (!isCount(guests, attending ? 1 : 0, attending ? MAX_GUESTS : 0)) {
     return {
       success: false,
-      error: attending ? "出席人數須為 1 到 10 的整數" : "未出席時，出席人數須為 0",
+      error: attending ? messages.guests : messages.declining,
     };
   }
   if (!isCount(vegetarian, 0)) {
-    return { success: false, error: "請填寫正確的素食人數。" };
+    return { success: false, error: messages.vegetarian };
   }
   if (vegetarian > guests) {
-    return { success: false, error: "素食人數不能超過出席人數，請再確認一下喔！" };
+    return { success: false, error: messages.vegetarianLimit };
   }
   if (!isCount(children, 0)) {
-    return { success: false, error: "請填寫正確的兒童人數。" };
+    return { success: false, error: messages.children };
   }
   if (children > guests) {
-    return { success: false, error: "兒童人數不能超過出席人數，請再確認一下喔！" };
+    return { success: false, error: messages.childrenLimit };
   }
 
   const message = body.message === undefined ? "" : body.message;
   if (typeof message !== "string" || message.length > MAX_MESSAGE_LENGTH) {
-    return { success: false, error: "備註須為文字，且最多 2000 個字元" };
+    return { success: false, error: messages.message };
   }
 
   return { success: true, data: { name, phone, attending, guests, vegetarian, children, message } };

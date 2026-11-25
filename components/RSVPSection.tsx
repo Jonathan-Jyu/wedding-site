@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { readRSVPResponse, RSVP_NETWORK_ERROR } from "@/lib/rsvp-errors";
+import { validateRSVP } from "@/lib/rsvp-validation";
 
 interface FormData {
   name: string;
@@ -18,6 +20,18 @@ interface SubmitState {
   success: boolean;
   error: string | null;
 }
+
+const initialFormData: FormData = {
+  name: "",
+  phone: "",
+  attending: null,
+  guests: 1,
+  vegetarian: 0,
+  children: 0,
+  message: "",
+};
+
+type SubmissionStatus = "idle" | "pending" | "uncertain" | "success";
 
 type CounterFieldProps = {
   label: string;
@@ -78,15 +92,9 @@ function CounterField({
 }
 
 export default function RSVPSection() {
-  const [formData, setFormData] = useState<FormData>({
-    name: "",
-    phone: "",
-    attending: null,
-    guests: 1,
-    vegetarian: 0,
-    children: 0,
-    message: "",
-  });
+  const [formData, setFormData] = useState(initialFormData);
+  const [formVersion, setFormVersion] = useState(0);
+  const submission = useRef<{ version: number; status: SubmissionStatus }>({ version: 0, status: "idle" });
 
   const [submitState, setSubmitState] = useState<SubmitState>({
     loading: false,
@@ -114,61 +122,79 @@ export default function RSVPSection() {
     }));
   };
 
+  const updateGuestCount = (guests: number) => {
+    setFormData((prev) => prev.attending ? {
+      ...prev,
+      guests,
+      vegetarian: Math.min(prev.vegetarian, guests),
+      children: Math.min(prev.children, guests),
+    } : prev);
+  };
+
+  const updateSubCount = (field: "vegetarian" | "children", count: number) => {
+    setFormData((prev) => prev.attending ? {
+      ...prev,
+      [field]: Math.min(count, prev.guests),
+    } : prev);
+  };
+
+  const startNewResponse = () => {
+    if (submission.current.version !== formVersion || submission.current.status !== "success") return;
+
+    const version = formVersion + 1;
+    submission.current = { version, status: "idle" };
+    setFormVersion(version);
+    setFormData(initialFormData);
+    setSubmitState({ loading: false, success: false, error: null });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name.trim()) {
-      setSubmitState({ loading: false, success: false, error: "請輸入姓名" });
+    const guard = submission.current;
+    if (guard.version !== formVersion || guard.status === "pending" || guard.status === "success") return;
+
+    const validated = validateRSVP(formData);
+    if (!validated.success) {
+      setSubmitState({ loading: false, success: false, error: validated.error });
       return;
     }
 
-    if (!formData.phone.trim()) {
-      setSubmitState({
-        loading: false,
-        success: false,
-        error: "請輸入聯絡電話",
-      });
-      return;
-    }
+    const wasUncertain = guard.status === "uncertain";
+    if (wasUncertain && !window.confirm("前一次回覆可能已成功送出。確定要再送出一份回覆嗎？")) return;
 
-    if (formData.attending === null) {
-      setSubmitState({
-        loading: false,
-        success: false,
-        error: "請選擇是否出席",
-      });
-      return;
-    }
-
+    guard.status = "pending";
     setSubmitState({ loading: true, success: false, error: null });
 
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+    let result: Awaited<ReturnType<typeof readRSVPResponse>>;
     try {
       const response = await fetch("/api/rsvp", {
         method: "POST",
+        redirect: "error",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(validated.data),
+        signal: controller.signal,
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSubmitState({ loading: false, success: true, error: null });
-        return;
-      }
-
-      setSubmitState({
-        loading: false,
-        success: false,
-        error: data.error || "提交失敗，請稍後重試",
-      });
+      result = await readRSVPResponse(response);
     } catch {
-      setSubmitState({
-        loading: false,
-        success: false,
-        error: "提交失敗，請檢查網路連線",
-      });
+      result = RSVP_NETWORK_ERROR;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+
+    if (result.success) {
+      guard.status = "success";
+      setSubmitState({ loading: false, success: true, error: null });
+    } else {
+      guard.status = result.uncertain || wasUncertain ? "uncertain" : "idle";
+      const error = wasUncertain && !result.uncertain
+        ? `${result.error}前一次回覆可能已成功送出，請先與我們確認。`
+        : result.error;
+      setSubmitState({ loading: false, success: false, error });
     }
   };
 
@@ -196,12 +222,10 @@ export default function RSVPSection() {
           </p>
 
           <button
-            onClick={() =>
-              setSubmitState({ loading: false, success: false, error: null })
-            }
+            onClick={startNewResponse}
             className="mt-10 rounded-full bg-stone-800 px-8 py-3 text-sm font-medium text-white shadow-lg transition hover:scale-105 hover:bg-stone-700"
           >
-            返回表單
+            填寫另一份回覆
           </button>
         </motion.div>
       </section>
@@ -326,24 +350,24 @@ export default function RSVPSection() {
                   min={1}
                   max={10}
                   value={formData.guests}
-                  onChange={(value) => updateField("guests", value)}
+                  onChange={updateGuestCount}
                 />
 
                 <CounterField
                   label="需要素食的人數"
                   min={0}
-                  max={10}
+                  max={formData.guests}
                   value={formData.vegetarian}
-                  onChange={(value) => updateField("vegetarian", value)}
+                  onChange={(value) => updateSubCount("vegetarian", value)}
                 />
 
                 <CounterField
                   label="需要兒童座椅 / 餐具的人數"
                 //   description="需兒童座椅或餐具"
                   min={0}
-                  max={10}
+                  max={formData.guests}
                   value={formData.children}
-                  onChange={(value) => updateField("children", value)}
+                  onChange={(value) => updateSubCount("children", value)}
                 />
               </motion.div>
             )}
