@@ -26,6 +26,8 @@ function loadTypeScript(path, context = {}, imports = {}) {
 }
 
 const errors = loadTypeScript("lib/rsvp-errors.ts", { SyntaxError });
+const requestReader = loadTypeScript("lib/rsvp-request.ts", { TextDecoder });
+const { MAX_RSVP_BODY_BYTES } = requestReader;
 const validation = loadTypeScript("lib/rsvp-validation.ts", {}, { "./rsvp-errors": errors });
 const timestamp = "2026-11-23 09:02:03";
 class FixedDate extends Date {
@@ -66,6 +68,7 @@ function makeRoute({ env = mockEnv, buildClient, append = () => ({ data: { updat
     "@/lib/timezone": timezone,
     "@/lib/rsvp-validation": validation,
     "@/lib/rsvp-errors": errors,
+    "@/lib/rsvp-request": requestReader,
     googleapis: {
       google: {
         auth: { GoogleAuth: class {} },
@@ -88,11 +91,17 @@ function makeRoute({ env = mockEnv, buildClient, append = () => ({ data: { updat
     appendOptions,
     logs,
     get sheetClients() { return sheetClients; },
-    post(body, headers = {}) {
+    post(body, overrides = {}) {
+      const headers = new Headers({ "Content-Type": "application/json" });
+      for (const [key, value] of Object.entries(overrides)) {
+        if (value === null) headers.delete(key);
+        else headers.set(key, value);
+      }
       const request = new nextServer.NextRequest("http://localhost/api/rsvp", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...headers },
+        headers,
         body,
+        duplex: "half",
       });
       return POST(request);
     },
@@ -366,3 +375,171 @@ for (const [label, response, match, uncertain] of [
 test("client accepts HTTP 200 only with the established success contract", async () => {
   assert.equal((await errors.readRSVPResponse(Response.json({ success: true }))).success, true);
 });
+
+const encoder = new TextEncoder();
+const validJSON = JSON.stringify(valid);
+
+async function assertProtectionError(body, headers, code, status) {
+  const initial = [route.sheetClients, route.appends.length, route.logs.length];
+  const response = await route.post(body, headers);
+  const result = await response.json();
+  assert.equal(response.status, status);
+  assert.deepEqual(result, {
+    success: false, code, error: errors.RSVP_ERRORS[code].message, requestId: result.requestId,
+  });
+  assert.match(result.requestId, /^[\da-f-]{36}$/);
+  assert.deepEqual([route.sheetClients, route.appends.length, route.logs.length], initial);
+}
+
+async function assertAllowedBody(body, headers = {}, message = valid.message, name = valid.name) {
+  const count = route.appends.length;
+  const response = await route.post(body, headers);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { success: true });
+  assert.equal(route.appends.length, count + 1);
+  assert.deepEqual(route.appends.at(-1).requestBody.values[0], [
+    timestamp, name, valid.phone, "是", 3, 2, 2, message,
+  ]);
+}
+
+for (const type of ["application/json", "application/json; charset=utf-8", "aPpLiCaTiOn/JsOn ; CHARSET=\"UTF-8\"; note=\"a,b\""]) {
+  test("accepts JSON media type " + type, () => assertAllowedBody(validJSON, { "content-type": type }));
+}
+
+for (const type of [
+  null, "text/plain", "text/html", "multipart/form-data; boundary=rsvp",
+  "application/x-www-form-urlencoded", "application/jsonp", "application/problem+json",
+  "text/application/json", "application/json, text/plain",
+  "application/json; charset", "application/json; charset=\"unterminated",
+]) {
+  test("rejects media type " + type + " before Sheets", () => assertProtectionError(
+    encoder.encode(validJSON), { "content-type": type }, "RSVP_UNSUPPORTED_MEDIA_TYPE", 415,
+  ));
+}
+
+test("accepts explicit identity encoding", () => assertAllowedBody(validJSON, { "content-encoding": "Identity" }));
+for (const encoding of ["gzip", "br", "identity, gzip"]) {
+  test("rejects non-identity encoding " + encoding, () => assertProtectionError(
+    validJSON, { "content-encoding": encoding }, "RSVP_UNSUPPORTED_MEDIA_TYPE", 415,
+  ));
+}
+
+test("well-formed media type still returns 400 for malformed JSON", () => assertProtectionError(
+  "{broken", { "content-type": "application/json; charset=utf-8" }, "RSVP_INVALID_JSON", 400,
+));
+
+test("accepts maximum-length Unicode, Emoji and multiline JSON, including escaped Unicode", async () => {
+  const name = "名".repeat(100);
+  const message = "恩".repeat(1989) + "😀\n第一行\r\n\\\"\t";
+  assert.equal(message.length, 2000);
+  const body = JSON.stringify({ ...valid, name, message }).replace(/[^\x20-\x7e]/g,
+    (char) => "\\u" + char.charCodeAt(0).toString(16).padStart(4, "0"));
+  assert.ok(Buffer.byteLength(body, "utf8") < MAX_RSVP_BODY_BYTES);
+  await assertAllowedBody(body, {}, message, name);
+});
+
+const padding = MAX_RSVP_BODY_BYTES - Buffer.byteLength(validJSON, "utf8");
+const atLimit = encoder.encode(validJSON + " ".repeat(padding));
+const tooLarge = encoder.encode(validJSON + " ".repeat(padding + 1));
+
+test("accepts exactly 32 KiB of UTF-8 input", async () => {
+  assert.equal(atLimit.byteLength, MAX_RSVP_BODY_BYTES);
+  await assertAllowedBody(atLimit);
+});
+
+for (const length of [null, "12", "not-a-length"]) {
+  test("rejects a body one byte too large with Content-Length " + length, () => assertProtectionError(
+    tooLarge, { "content-length": length }, "RSVP_PAYLOAD_TOO_LARGE", 413,
+  ));
+}
+
+test("rejects an oversized declared length before reading from the stream", async () => {
+  let pulls = 0;
+  const stream = new ReadableStream({ pull() { pulls++; } }, { highWaterMark: 0 });
+  await assertProtectionError(stream, { "content-length": String(MAX_RSVP_BODY_BYTES + 1) }, "RSVP_PAYLOAD_TOO_LARGE", 413);
+  assert.equal(pulls, 0);
+});
+
+test("stops reading and cancels as soon as a multi-chunk stream is too large", { timeout: 2000 }, async () => {
+  let pulls = 0;
+  let cancels = 0;
+  const stream = new ReadableStream({
+    pull(controller) {
+      pulls++;
+      controller.enqueue(new Uint8Array(pulls === 1 ? MAX_RSVP_BODY_BYTES / 2 : MAX_RSVP_BODY_BYTES / 2 + 1));
+    },
+    cancel() {
+      cancels++;
+      return new Promise(() => {});
+    },
+  }, { highWaterMark: 0 });
+  await assertProtectionError(stream, {}, "RSVP_PAYLOAD_TOO_LARGE", 413);
+  assert.equal(pulls, 2);
+  assert.equal(cancels, 1);
+  assert.equal(stream.locked, false);
+});
+
+test("decodes valid UTF-8 split across chunks", async () => {
+  const bytes = encoder.encode(validJSON);
+  const split = bytes.findIndex((value) => value >= 0x80) + 1;
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(bytes.subarray(0, split));
+      controller.enqueue(bytes.subarray(split));
+      controller.close();
+    },
+  });
+  await assertAllowedBody(stream);
+});
+
+test("rejects invalid UTF-8", () => assertProtectionError(
+  new Uint8Array([34, 0xc3, 0x28, 34]), {}, "RSVP_INVALID_JSON", 400,
+));
+
+test("returns safe 400 on a stream read failure", async () => {
+  const stream = new ReadableStream({ pull(controller) { controller.error(new Error(secret)); } });
+  await assertProtectionError(stream, {}, "RSVP_INVALID_JSON", 400);
+  assert.equal(stream.locked, false);
+});
+
+for (const [code, status, hint] of [
+  ["RSVP_PAYLOAD_TOO_LARGE", 413, /太長/],
+  ["RSVP_UNSUPPORTED_MEDIA_TYPE", 415, /重新整理/],
+  ["RSVP_RATE_LIMITED", 429, /太多次/],
+]) {
+  for (const knownSource of [true, false]) {
+    test("client handles " + status + " with " + (knownSource ? "app contract" : "non-JSON body"), async () => {
+      const headers = { "Retry-After": "30", "x-vercel-id": "mock-id" };
+      const response = knownSource
+        ? Response.json({ ...known, code, error: secret }, { status, headers })
+        : new Response("<html>proxy marker</html>", { status, headers });
+      const result = await errors.readRSVPResponse(response);
+      assert.equal(result.success, false);
+      assert.match(result.error, hint);
+      assert.equal(result.error.includes("30 秒"), status === 429);
+      assert.equal(result.uncertain, !knownSource);
+      assert.ok(!result.error.includes("proxy marker") && !result.error.includes(valid.name));
+    });
+  }
+}
+
+test("unknown JSON 429 with an HTTP-date offers wait guidance but stays uncertain", async () => {
+  const future = new Date(Date.now() + 35_000).toUTCString();
+  const response = Response.json({ ...known, code: "UNKNOWN_RATE_LIMIT" }, {
+    status: 429, headers: { "Retry-After": future },
+  });
+  const result = await errors.readRSVPResponse(response);
+  assert.match(result.error, /建議至少等 \d+ 秒/);
+  assert.equal(result.uncertain, true);
+});
+
+for (const retryAfter of ["-1", "1.5", "9e3", "999999999999999999", "Tue, 25 Nov 2025 00:00:00 GMT", "unsafe text"]) {
+  test("client ignores unusable Retry-After " + retryAfter, async () => {
+    const result = await errors.readRSVPResponse(new Response(null, {
+      status: 429, headers: { "Retry-After": retryAfter },
+    }));
+    assert.doesNotMatch(result.error, /建議至少等/);
+    assert.match(result.error, /太多次/);
+    assert.equal(result.uncertain, true);
+  });
+}

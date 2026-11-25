@@ -19,6 +19,7 @@ import { google } from 'googleapis';
 import { getTimeInTaipei } from '@/lib/timezone';
 import { validateRSVP } from '@/lib/rsvp-validation';
 import { RSVP_ERRORS, type RSVPErrorCode, type RSVPErrorResponse } from '@/lib/rsvp-errors';
+import { readRSVPRequest } from '@/lib/rsvp-request';
 
 interface SuccessResponse {
   success: true;
@@ -93,14 +94,10 @@ export async function POST(
     return failure(code);
   }
 
-  let input: unknown;
-  try {
-    input = await request.json();
-  } catch {
-    return failure('RSVP_INVALID_JSON');
-  }
+  const input = await readRSVPRequest(request);
+  if (!input.success) return failure(input.code);
 
-  const result = validateRSVP(input);
+  const result = validateRSVP(input.body);
   if (!result.success) {
     return failure('RSVP_VALIDATION_ERROR', result.error);
   }
