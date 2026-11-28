@@ -17,12 +17,28 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getTimeInTaipei } from '@/lib/timezone';
-import { validateRSVP } from '@/lib/rsvp-validation';
+import { validateRSVP, type ValidatedRSVP } from '@/lib/rsvp-validation';
 import { RSVP_ERRORS, type RSVPErrorCode, type RSVPErrorResponse } from '@/lib/rsvp-errors';
 import { readRSVPRequest } from '@/lib/rsvp-request';
 
 interface SuccessResponse {
   success: true;
+}
+
+const RSVP_SHEET_RANGE = '工作表1!A:H';
+type RSVPSheetRow = [string, string, string, '是' | '否', number, number, number, string];
+
+function toSheetRow(body: ValidatedRSVP): RSVPSheetRow {
+  return [
+    getTimeInTaipei(), // A 建立時間
+    body.name, // B 姓名
+    body.phone, // C 聯絡電話
+    body.attending ? '是' : '否', // D 是否出席家宴
+    body.guests, // E 出席人數
+    body.vegetarian, // F 素食人數
+    body.children, // G 小孩人數
+    body.message, // H 想說的話
+  ];
 }
 
 function initializeSheets() {
@@ -101,36 +117,23 @@ export async function POST(
   if (!result.success) {
     return failure('RSVP_VALIDATION_ERROR', result.error);
   }
-  const body = result.data;
-
   let client: ReturnType<typeof initializeSheets>;
-  let taipeiTime: string;
+  let row: RSVPSheetRow;
   try {
     client = initializeSheets();
-    taipeiTime = getTimeInTaipei();
+    row = toSheetRow(result.data);
   } catch (error) {
     return logFailure('RSVP_CONFIGURATION_ERROR', getUpstreamStatus(error));
   }
 
   const { sheets, sheetId } = client;
-  const values = [[
-    taipeiTime, // 建立時間
-    body.name, // 姓名
-    body.phone, // 聯絡電話
-    body.attending ? '是' : '否', // 是否出席家宴
-    body.guests, // 出席人數(包含自己)
-    body.vegetarian, // 素食人數
-    body.children, // 小孩人數(需兒童座椅或餐具)
-    body.message, // 想說的話
-  ]];
-
   try {
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: '工作表1!A:H',
+      range: RSVP_SHEET_RANGE,
       valueInputOption: 'RAW',
       requestBody: {
-        values,
+        values: [row],
       },
     }, { retry: false, redirect: 'error', timeout: 10_000 });
 

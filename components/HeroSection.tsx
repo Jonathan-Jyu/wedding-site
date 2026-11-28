@@ -1,13 +1,8 @@
 import Image from "next/image";
 import { weddingInfo } from "@/data/wedding";
-import CountdownCard from "./CountdownCard";
-import { Countdown } from "@/hooks/useCountdown";
+import HeroCountdown from "./HeroCountdown";
 
-type HeroSectionProps = {
-  countdown: Countdown;
-};
-
-export default function HeroSection({ countdown }: HeroSectionProps) {
+export default function HeroSection() {
   return (
     <section id="home" className="relative flex items-center justify-center overflow-hidden px-6 pb-16 pt-28 md:pt-32">
         <div className="absolute left-[-120px] top-[-120px] h-80 w-80 rounded-full bg-rose-200/40 blur-3xl" />
@@ -39,12 +34,7 @@ export default function HeroSection({ countdown }: HeroSectionProps) {
             {weddingInfo.date}
             </p>
 
-            <div className="mx-auto mb-10 grid max-w-2xl grid-cols-2 gap-3 md:grid-cols-4">
-            <CountdownCard label="Days" value={countdown.days} />
-            <CountdownCard label="Hours" value={countdown.hours} />
-            <CountdownCard label="Minutes" value={countdown.minutes} />
-            <CountdownCard label="Seconds" value={countdown.seconds} />
-            </div>
+            <HeroCountdown />
 
             <div className="mx-auto max-w-2xl rounded-[2rem] border border-white/70 bg-white/75 p-8 shadow-xl shadow-stone-200/50 backdrop-blur">
             <p className="mb-3 text-lg font-medium text-stone-700">

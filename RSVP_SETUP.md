@@ -12,6 +12,15 @@ GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\
 
 ## Setup Instructions
 
+### 憑證、文件權限與個資維護
+
+- 本機只在 `.env.local` 設定上述三個 server-only 環境變數。如須保留下載的 Service Account 金鑰 JSON，請集中存放於專案根目錄下的 `.local-secrets/`，並以 `git check-ignore -- <path>` 確認實際路徑受保護。Git 不會依 JSON 檔名判斷憑證。禁止提交真實金鑰，也請避免放入 `public/`、Client Component、日誌或工單。
+- Vercel 專案 **Settings → Environment Variables**。逐一核對環境範圍。Production 使用正式 Sheet 和專用帳號。Preview／Development 如需測試寫入，配置另一份 Sheet 與獨立帳號，並使用個別環境設定。無需寫入時可省略憑證，測試使用 Mock。新值需隨對應環境的新部署載入。[Vercel Environment Variables](https://vercel.com/docs/environment-variables)
+- 在 Google Sheets 按 **共用 → 一般存取權 → 受限制**，核對可存取的主辦方名單。確認服務帳號只有目標試算表的編輯權限，並檢視 Drive 內是否還有其他不必要的直接或繼承分享。Google Cloud **IAM 與管理 → IAM／服務帳戶** 核對帳號、專案權限與金鑰清單。程式使用 Sheets scope 來寫入，實際能存取哪些試算表仍受 Google 分享權限控制。
+- 由帳號管理者輪替時，在 **IAM 與管理 → 服務帳戶 → 選取帳號 → 金鑰** 建立新金鑰，安全地放入目標環境。先以隔離 Sheet 驗證新設定，依授權部署並確認正式寫入及回復路徑，再停用舊金鑰，確認無其他使用者後撤銷。若懷疑外洩，優先通知管理者評估停用並查核存取紀錄。[Google Cloud 金鑰管理建議](https://docs.cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys)
+- 主辦方決定 RSVP 存取人員、保存期限、匯出與備份方式及婚禮後刪除流程。匯出限必要欄位，在受控位置保存並同步清理副本、舊備份與共享連結。表單按鈕附近的草擬用途說明為「您所提供的資料僅供本次婚禮出席確認、聯繫及相關安排使用。」待主辦方確認用途後再刊登。
+- 應用程式錯誤日誌只記錄固定事件名、伺服器產生的 requestId、錯誤代碼、耗時及符合範圍的 upstream status。以 requestId 查 **Vercel Logs**，檢查平台原生日誌的權限與留存設定時，另行確認 Dashboard 實際設定。
+
 ### 1. Create a Google Cloud Project
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
@@ -80,6 +89,8 @@ curl -X POST http://localhost:3000/api/rsvp \
 
 ### Response (Error)
 
+應用程式錯誤包含 `success: false`、固定 `code`、中文 `error` 與伺服器產生的 `requestId`。HTTP 400 使用 `RSVP_INVALID_JSON` 或 `RSVP_VALIDATION_ERROR`。500 使用 `RSVP_CONFIGURATION_ERROR`。502 區分明確拒絕的 `RSVP_SUBMISSION_FAILED`，以及寫入結果未能確認的 `RSVP_SUBMISSION_UNCERTAIN`。其餘 413／415／429 見下方請求防護。平台直接回應的 429 可能沒有上述欄位。
+
 ```json
 {
   "success": false,
@@ -97,7 +108,13 @@ Make sure your Google Sheet has the following headers in row 1:
 |---|---|---|---|---|---|---|---|
 | 建立時間 | 姓名 | 聯絡電話 | 是否出席家宴 | 出席人數(包含自己) | 素食人數 | 小孩人數(需兒童座椅或餐具) | 想說的話 |
 
-The API will append data starting from row 2.
+API 單次追加到 `工作表1!A:H`，從標題列之後開始。使用 `RAW`，A 是由 `Asia/Taipei` 產生的 `YYYY-MM-DD HH:mm:ss` 文字，C 是電話文字（保留前導零及加號），B／H 保留純文字，D 是「是」或「否」，E／F／G 是數字。姓名或備註的公式樣式字元會依 RAW 寫入。追加回應需確認恰好一列才回成功。寫入不自動重試，逾時或結果不明時請先查既有回覆。
+
+### A 欄日期與隔離驗收
+
+1. 在 **檔案 → 設定** 核對 locale 與試算表時區，選一筆舊版及一筆新版資料。可在授權的隔離副本用 `TYPE(A2)`、`ISTEXT(A2)`、`ISNUMBER(A2)` 檢視底層型別，並核對 **格式 → 數字**。歷史列可能是日期序號，新列固定是文字。連續採用同樣格式的文字可按字串排序，混合文字與數字時須實測實際排序與日期篩選。
+2. 在隔離 Sheet／Preview 使用合成資料提交一次，確認只有一列、頁籤及 A:H 正確、A 顯示台北時間、C 保留前導零或國碼、E:G 為數字、H 的公式樣式仍為文字。以主辦方使用的排序、日期篩選、QUERY 或報表副本比較新舊列是否同時納入。核對當地午夜前後跨日。若需 CSV，檢查匯入端對公式前綴的另一次解析。
+3. 若確認業務需要原生日期，先在隔離副本用已知台北日期和午夜樣本驗證日期序號及日期格式，並對照舊列、locale、時區與報表。待主辦方核准回復方案、寫入契約及歷史遷移後，才考慮 A 欄限定使用數值序號及日期顯示格式。B:H 繼續使用 RAW 與原型別。[Sheets 日期與數字格式](https://developers.google.com/workspace/sheets/api/guides/formats)
 
 ## RSVP 請求防護
 
@@ -117,7 +134,7 @@ The API will append data starting from row 2.
 
 2026-11-25（台北時間）查證，Hobby 每專案可設 1 條限流規則，支援 IP／JA4 key、10 秒至 10 分鐘的 Fixed Window，每月含 100 萬筆允許通過的限流請求。Vercel 的 edge 計數與 Function instance 分離，同一區域跨 instance 生效，各 edge region 分開計數。官方說明預設阻擋回 429，未保證 WAF 回應 body 形狀或 `Retry-After`。Hobby 的額度及 Pricing 對話框以當時 Dashboard 為準。[WAF Rate Limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting) · [計數範圍](https://vercel.com/i/rate-limiting-algorithms) · [Vercel Pricing](https://vercel.com/pricing)
 
-本專案採 **`POST /api/rsvp`、IP、每 60 秒 10 次** 作為起始設定。計數使用 Vercel WAF 識別的來源 IP。由於 IP 可能由家庭、公司或行動網路共用，先看匹配流量和實際誤擋，再決定是否調高上限，例如 15–20 次。準備以 Dashboard 手動設定。官方 `vercel.json` 的 WAF 規則只列 challenge／deny；Firewall CLI、REST API 或 Terraform 另可管理平台規則，但需要授權及相應維運流程。[規則條件](https://vercel.com/docs/vercel-firewall/vercel-waf/rule-configuration) · [Custom Rules](https://vercel.com/docs/vercel-firewall/vercel-waf/custom-rules) · [Firewall CLI](https://vercel.com/docs/cli/firewall)
+正式環境已於 2026-11-25 啟用 **RSVP Rate Limit**，以 Path Equals `/api/rsvp` AND Method Equals `POST`，按 Vercel WAF 識別的來源 IP 固定視窗每 60 秒 10 次，超限於 WAF 回 HTTP 429。Request Headers 紀錄未額外啟用。使用者已實測 400 → 429 → 視窗恢復，並核對 Firewall Traffic。共用 IP 會共用額度，可觀察正常賓客誤擋再評估調整。規則由 Dashboard 管理。[規則條件](https://vercel.com/docs/vercel-firewall/vercel-waf/rule-configuration)
 
 ### Dashboard 操作
 
@@ -134,4 +151,4 @@ The API will append data starting from row 2.
 
 ### 替代方案與目前範圍
 
-若日後需要跨區域共享的精確計數，可評估 Upstash Redis 的單一共享計數。Free 方案有每月 50 萬 commands，Pay as You Go 自 US$0.20／10 萬 commands 起，需額外管理服務、secrets、延遲、故障策略及共享 IP 誤擋。Vercel Pro 支援更多規則，固定視窗計數仍依區域。單一 Function 的記憶體計數無法涵蓋跨 instance。這一階段使用原生 WAF 規則，等待管理者發布和驗收。CAPTCHA、honeypot、持久化限流和伺服器去重均未導入。[Upstash Redis Pricing](https://upstash.com/pricing/redis) · [Vercel 各方案限流能力](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting)
+若日後需要跨區域共享的精確計數，可評估 Upstash Redis 的單一共享計數，需額外管理服務、secrets、延遲、故障策略及共享 IP 誤擋。Vercel WAF 固定視窗依區域計數。CAPTCHA、honeypot、持久化限流和伺服器去重均未導入。[Upstash Redis Pricing](https://upstash.com/pricing/redis) · [Vercel 各方案限流能力](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting)

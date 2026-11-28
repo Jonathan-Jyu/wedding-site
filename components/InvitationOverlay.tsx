@@ -2,15 +2,22 @@ type InvitationOverlayProps = {
   isOpened: boolean;
   isOpening: boolean;
   openInvitation: () => void;
+  onRevealed: () => void;
 };
 
 export default function InvitationOverlay({
   isOpened,
   isOpening,
   openInvitation,
+  onRevealed,
 }: InvitationOverlayProps) {
   return (
     <div
+      onTransitionEnd={(event) => {
+        if (isOpened && event.target === event.currentTarget && event.propertyName === "opacity") {
+          onRevealed();
+        }
+      }}
       className={`fixed inset-0 z-[100] overflow-hidden bg-[#faf7f2] transition-opacity duration-1000 ${
         isOpened ? "pointer-events-none opacity-0" : "opacity-100"
       }`}

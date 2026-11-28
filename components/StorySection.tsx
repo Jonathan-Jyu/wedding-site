@@ -1,17 +1,43 @@
 "use client";
 
+import Image from "next/image";
+import { useState } from "react";
 import { motion } from "framer-motion";
-
-type Story = {
-  year: string;
-  title: string;
-  description: string;
-  image?: string;
-};
+import type { Story } from "@/data/story";
 
 type StorySectionProps = {
   stories: Story[];
 };
+
+function StoryPhoto({ image, title, year }: { image: NonNullable<Story["image"]>; title: string; year: string }) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <div className="relative overflow-hidden rounded-[1.5rem]" onLoadCapture={() => setFailed(false)}>
+      <div style={{ aspectRatio: image.width / image.height }} />
+      <Image
+        src={image.src}
+        alt={title}
+        aria-hidden={failed || undefined}
+        fill
+        sizes="(min-width: 768px) 220px, calc(100vw - 88px)"
+        loading="lazy"
+        className="object-cover transition duration-700 hover:scale-105"
+        draggable={false}
+        onError={() => setFailed(true)}
+      />
+      {failed && (
+        <div
+          role="img"
+          aria-label={`${title}的照片暫時無法顯示`}
+          className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-rose-100 via-[#fff7f4] to-amber-100"
+        >
+          <p className="font-serif text-4xl text-rose-200">{year}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function StorySection({ stories }: StorySectionProps) {
   return (
@@ -41,22 +67,15 @@ export default function StorySection({ stories }: StorySectionProps) {
               }}
               className="grid gap-6 rounded-[2rem] border border-white/70 bg-white/70 p-5 shadow-xl shadow-stone-200/50 backdrop-blur md:grid-cols-[220px_1fr] md:p-6"
             >
-              <div className="overflow-hidden rounded-[1.5rem]">
-                {story.image ? (
-                    <img
-                    src={story.image}
-                    alt={story.title}
-                    className="h-full w-full object-cover transition duration-700 hover:scale-105"
-                    draggable={false}
-                    />
-                ) : (
-                    <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-rose-100 via-[#fff7f4] to-amber-100">
-                    <p className="font-serif text-4xl text-rose-200">
-                        {story.year}
-                    </p>
-                    </div>
-                )}
-            </div>
+              {story.image ? (
+                <StoryPhoto key={story.image.src} image={story.image} title={story.title} year={story.year} />
+              ) : (
+                <div className="overflow-hidden rounded-[1.5rem]">
+                  <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-rose-100 via-[#fff7f4] to-amber-100">
+                    <p className="font-serif text-4xl text-rose-200">{story.year}</p>
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col justify-center">
                 <p className="mb-2 font-serif text-3xl text-rose-700">

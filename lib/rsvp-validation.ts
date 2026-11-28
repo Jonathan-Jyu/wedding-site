@@ -8,7 +8,7 @@ const MAX_GUESTS = 10;
 // Accept common phone separators and optional extensions without rewriting the number.
 const PHONE_PATTERN = /^\+?((?:\d|\(\d+\))(?:[ .-]*(?:\d|\(\d+\)))*)(?: *(?:ext\.?|x|#|轉) *\d{1,6})?$/i;
 
-type ValidatedRSVP = {
+export type ValidatedRSVP = {
   name: string;
   phone: string;
   attending: boolean;

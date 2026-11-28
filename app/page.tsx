@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import HeroSection from "@/components/HeroSection";
 import TimelineSection from "@/components/TimelineSection";
 import LocationSection from "@/components/LocationSection";
@@ -13,95 +13,60 @@ import FooterSection from "@/components/FooterSection";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { galleryImages } from "@/data/wedding";
 import { storyTimeline } from "@/data/story";
-import { useCountdown } from "@/hooks/useCountdown";
+import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { useGalleryAnimation } from "@/hooks/useGalleryAnimation";
 
+const INVITATION_OPEN_MS = 1200;
+const INVITATION_FADE_FALLBACK_MS = 1100;
+
 export default function Home() {
-  const countdown = useCountdown();
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { audioRef, isPlaying, playMusic, toggleMusic } = useBackgroundMusic();
   const [isOpened, setIsOpened] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
+  const [isInvitationRevealed, setIsInvitationRevealed] = useState(false);
+  const openingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
-  useGalleryAnimation(galleryRef, isOpened);
+  useGalleryAnimation(galleryRef, isInvitationRevealed);
 
-  // 首次點擊播放音樂
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = 0.15;
-    }
-
-    const handleFirstClick = async () => {
-      if (audioRef.current) {
-        try {
-          await audioRef.current.play();
-          setIsPlaying(true);
-        } catch (err) {
-          console.log("Play failed");
-        }
-      }
-      document.removeEventListener("click", handleFirstClick);
-    };
-
-    document.addEventListener("click", handleFirstClick);
-
     return () => {
-      document.removeEventListener("click", handleFirstClick);
+      if (openingTimer.current !== null) clearTimeout(openingTimer.current);
     };
   }, []);
 
-  const toggleMusic = useCallback(async () => {
-    if (!audioRef.current) return;
+  useEffect(() => {
+    if (!isOpened || isInvitationRevealed) return;
+    // The opacity transition normally releases the Gallery. Allow for a skipped transition.
+    const timer = setTimeout(() => setIsInvitationRevealed(true), INVITATION_FADE_FALLBACK_MS);
+    return () => clearTimeout(timer);
+  }, [isOpened, isInvitationRevealed]);
 
-    audioRef.current.volume = 0.2;
-
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.muted = false;
-      await audioRef.current.play();
-      setIsPlaying(true);
-    }
-  }, [isPlaying]);
-
-  const openInvitation = useCallback(async () => {
+  function openInvitation() {
+    if (openingTimer.current !== null || isOpened) return;
     setIsOpening(true);
-
-    if (audioRef.current) {
-      audioRef.current.volume = 0.15;
-
-      try {
-        await audioRef.current.play();
-        setIsPlaying(true);
-      } catch {
-        console.log("Music autoplay blocked");
-      }
-    }
-
-    setTimeout(() => {
+    openingTimer.current = setTimeout(() => {
       window.scrollTo({
         top: 0,
         behavior: "instant",
       });
 
       setIsOpened(true);
-    }, 1200);
-  }, []);
+    }, INVITATION_OPEN_MS);
+    playMusic(0.15);
+  }
 
   return (
     <>
-      <audio ref={audioRef} loop>
-        <source src="/music/I Love You 3000.mp3" type="audio/mpeg" />
-      </audio>
+      <audio ref={audioRef} src="/music/I Love You 3000.mp3" loop />
     <main className="bg-[#faf7f2] text-stone-800">
       <FloatingNavbar />
       <InvitationOverlay
         isOpened={isOpened}
         isOpening={isOpening}
         openInvitation={openInvitation}
+        onRevealed={() => setIsInvitationRevealed(true)}
       />
-      <HeroSection countdown={countdown} />
+      <HeroSection />
       <GallerySection
         images={galleryImages}
         galleryRef={galleryRef}
