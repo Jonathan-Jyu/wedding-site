@@ -9,13 +9,14 @@ const script = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
 }).outputText;
 
-function mount() {
+function mount(reducedMotion = false) {
   const states = [];
   const refs = [];
   const effects = [];
   const timers = new Map();
   const plays = [];
   const scrolls = [];
+  const focus = [];
   let stateIndex, refIndex, effectIndex;
   let nextTimer = 0;
   let galleryMayPlay = false;
@@ -42,6 +43,8 @@ function mount() {
   const modules = {
     react,
     "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "fragment" },
+    "framer-motion": { MotionConfig: "motion-config" },
+    "@/hooks/useReducedMotionPreference": { useReducedMotionPreference: () => reducedMotion },
     "@/hooks/useBackgroundMusic": {
       useBackgroundMusic: () => ({ playMusic: volume => { plays.push(volume); return new Promise(() => {}); } }),
     },
@@ -64,11 +67,14 @@ function mount() {
     render: () => {
       stateIndex = refIndex = effectIndex = 0;
       const root = exports.default();
-      const overlay = root.props.children.find(child => child.type === "main").props.children
-        .find(child => child.type === "@/components/InvitationOverlay");
-      return { ...overlay.props, galleryMayPlay };
+      const overlay = root.props.children.find(child => child.type === "@/components/InvitationOverlay");
+      const main = root.props.children.find(child => child.type === "main");
+      main.props.children.find(child => child.type === "@/components/HeroSection").props.headingRef.current ??= {
+        focus: options => focus.push(options.preventScroll),
+      };
+      return { ...overlay.props, inert: main.props.inert, galleryMayPlay };
     },
-    timers, plays, scrolls,
+    timers, plays, scrolls, focus,
     runTimer: () => {
       const [[id, { callback }]] = [...timers];
       timers.delete(id);
@@ -121,4 +127,35 @@ test("the invitation reveal fallback and both phases clean up their timers on un
   assert.equal(fallback.render().galleryMayPlay, true);
   assert.equal(fallback.timers.size, 0);
   fallback.unmount();
+});
+
+test("the page stays inert until reveal and focus moves to the heading without scrolling", () => {
+  const home = mount();
+  const invitation = home.render();
+  assert.equal(invitation.inert, true);
+  invitation.openInvitation();
+  home.runTimer();
+  const fading = home.render();
+  assert.equal(fading.inert, true);
+  assert.deepEqual(home.focus, []);
+  fading.onRevealed();
+  assert.equal(home.render().inert, false);
+  assert.deepEqual(home.focus, [true]);
+  assert.deepEqual(home.scrolls, [0]);
+  home.unmount();
+});
+
+test("reduced motion reveals without an opacity event and still requests music once", () => {
+  const home = mount(true);
+  const invitation = home.render();
+  invitation.openInvitation();
+  invitation.openInvitation();
+  assert.deepEqual(home.plays, [0.15]);
+  assert.deepEqual([...home.timers.values()].map(timer => timer.delay), [0]);
+  home.runTimer();
+  assert.equal(home.render().inert, false);
+  assert.equal(home.render().galleryMayPlay, true);
+  assert.deepEqual(home.focus, [true]);
+  assert.equal(home.timers.size, 0);
+  home.unmount();
 });

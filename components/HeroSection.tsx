@@ -2,7 +2,7 @@ import Image from "next/image";
 import { weddingInfo } from "@/data/wedding";
 import HeroCountdown from "./HeroCountdown";
 
-export default function HeroSection() {
+export default function HeroSection({ headingRef }: { headingRef: React.Ref<HTMLHeadingElement> }) {
   return (
     <section id="home" className="relative flex items-center justify-center overflow-hidden px-6 pb-16 pt-28 md:pt-32">
         <div className="absolute left-[-120px] top-[-120px] h-80 w-80 rounded-full bg-rose-200/40 blur-3xl" />
@@ -13,7 +13,7 @@ export default function HeroSection() {
             OUR WEDDING
             </p>
 
-            <h1 className="mb-6 flex flex-wrap items-center justify-center gap-2 font-serif text-4xl leading-tight text-stone-800 sm:text-5xl md:text-7xl">
+            <h1 ref={headingRef} tabIndex={-1} className="mb-6 flex flex-wrap items-center justify-center gap-2 font-serif text-4xl leading-tight text-stone-800 outline-none sm:text-5xl md:text-7xl">
             <span>Jonathan</span>
 
             <Image

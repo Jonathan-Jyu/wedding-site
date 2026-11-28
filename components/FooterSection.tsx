@@ -1,60 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useRef, type CSSProperties } from "react";
+import { motion, useInView } from "framer-motion";
 import { Flower2 } from "lucide-react";
 
-type Petal = {
-  id: number;
-  x: number;
-  drift: number;
-  delay: number;
-  duration: number;
-  size: number;
-};
+const petals = Array.from({ length: 12 }, (_, id) => ({
+  id,
+  size: 12 + (id * 7) % 10,
+  style: {
+    left: `${(id * 37 + 8) % 100}%`,
+    "--petal-drift": `${(id * 57 + 31) % 160 - 80}px`,
+    animationDelay: `${(id * 2.7) % 8}s`,
+    animationDuration: `${18 + (id * 3.1) % 10}s`,
+  } satisfies CSSProperties & { "--petal-drift": string },
+}));
 
 export default function FooterSection() {
-  const [petals, setPetals] = useState<Petal[]>([]);
-
-  useEffect(() => {
-    const generatedPetals = [...Array(12)].map((_, index) => ({
-      id: index,
-      x: Math.random() * window.innerWidth,
-      drift: Math.random() * 160 - 80,
-      delay: Math.random() * 8,
-      duration: 18 + Math.random() * 10,
-      size: 12 + Math.random() * 10,
-    }));
-
-    setPetals(generatedPetals);
-  }, []);
+  const section = useRef<HTMLElement>(null);
+  const visible = useInView(section);
 
   return (
-    <section className="relative overflow-hidden px-6 py-28">
+    <section ref={section} className="relative overflow-hidden px-6 py-28">
       {/* 花瓣 */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div aria-hidden="true" data-petals-visible={visible} className="pointer-events-none absolute inset-0 overflow-hidden">
         {petals.map((petal) => (
-          <motion.div
+          <div
             key={petal.id}
-            initial={{
-              opacity: 0,
-              y: -100,
-              x: petal.x,
-              rotate: 0,
-            }}
-            animate={{
-              opacity: [0, 0.7, 0],
-              y: 1200,
-              x: petal.x + petal.drift,
-              rotate: 360,
-            }}
-            transition={{
-              duration: petal.duration,
-              repeat: Infinity,
-              delay: petal.delay,
-              ease: "linear",
-            }}
-            className="absolute top-0"
+            className="footer-petal absolute top-0"
+            style={petal.style}
           >
             <Flower2
               className="text-rose-200/70"
@@ -63,7 +36,7 @@ export default function FooterSection() {
                 height: petal.size,
               }}
             />
-          </motion.div>
+          </div>
         ))}
       </div>
 
@@ -97,9 +70,9 @@ export default function FooterSection() {
         </p>
 
         <p className="mt-14 font-serif text-2xl italic tracking-[0.02em] leading-10 text-[#c6a77d] md:text-3xl">
-          "With you, every ordinary moment
+          &quot;With you, every ordinary moment
           <br />
-          becomes something unforgettable."
+          becomes something unforgettable.&quot;
         </p>
 
         <div className="mt-16">

@@ -23,7 +23,7 @@ function GalleryPhotoCard({ src, alt, loading }: Pick<ImageProps, "src" | "alt" 
       {failed && (
         <div
           role="img"
-          aria-label="照片暫時無法顯示"
+          aria-label={`${alt}暫時無法顯示`}
           className="absolute inset-0 flex items-center justify-center bg-stone-100 p-4 text-center text-sm text-stone-600"
         >
           照片暫時無法顯示
@@ -49,22 +49,23 @@ export default function GallerySection({
   galleryRef,
 }: GallerySectionProps) {
   return (
-    <section id="gallery" className="overflow-hidden py-20">
+    <section id="gallery" aria-label="婚紗相簿" className="overflow-hidden py-20">
       <div className="relative cursor-grab select-none touch-pan-y touch-pinch-zoom active:cursor-grabbing">
         <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-24 bg-gradient-to-r from-[#faf7f2] to-transparent" />
         <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-24 bg-gradient-to-l from-[#faf7f2] to-transparent" />
 
         <div
+          aria-live="off"
           ref={galleryRef}
           className="flex gap-6"
         >
           {[0, 1, 2].map((group) => (
-            <div key={group} className="flex shrink-0 gap-6">
+            <div key={group} aria-hidden={group !== 1 || undefined} className="flex shrink-0 gap-6">
               {images.map((src, index) => (
                 <GalleryPhotoCard
                   key={`${index}-${src}`}
                   src={src}
-                  alt={`gallery-${group * images.length + index}`}
+                  alt={`婚紗照 ${index + 1}／${images.length}`}
                   loading={group === 0 ? "lazy" : "eager"}
                 />
               ))}

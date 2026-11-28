@@ -1,6 +1,9 @@
+import { useEffect, useRef } from "react";
+
 type InvitationOverlayProps = {
   isOpened: boolean;
   isOpening: boolean;
+  isRevealed: boolean;
   openInvitation: () => void;
   onRevealed: () => void;
 };
@@ -8,17 +11,38 @@ type InvitationOverlayProps = {
 export default function InvitationOverlay({
   isOpened,
   isOpening,
+  isRevealed,
   openInvitation,
   onRevealed,
 }: InvitationOverlayProps) {
+  const dialog = useRef<HTMLDivElement>(null);
+  const opener = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (isRevealed) return;
+    (isOpened ? dialog.current : opener.current)?.focus({ preventScroll: true });
+  }, [isOpened, isRevealed]);
+
   return (
     <div
+      ref={dialog}
+      tabIndex={-1}
+      role={isRevealed ? undefined : "dialog"}
+      aria-modal={isRevealed ? undefined : true}
+      aria-label={isRevealed ? undefined : "婚禮喜帖"}
+      inert={isRevealed}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab" || isRevealed) return;
+        event.preventDefault();
+        opener.current?.focus({ preventScroll: true });
+        opener.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
+      }}
       onTransitionEnd={(event) => {
         if (isOpened && event.target === event.currentTarget && event.propertyName === "opacity") {
           onRevealed();
         }
       }}
-      className={`fixed inset-0 z-[100] overflow-hidden bg-[#faf7f2] transition-opacity duration-1000 ${
+      className={`fixed inset-0 z-[100] overflow-x-hidden overflow-y-auto overscroll-contain bg-[#faf7f2] text-stone-800 outline-none transition-opacity duration-1000 motion-reduce:transition-none ${
         isOpened ? "pointer-events-none opacity-0" : "opacity-100"
       }`}
     >
@@ -27,16 +51,16 @@ export default function InvitationOverlay({
           <div className="absolute left-[-80px] top-[-80px] h-72 w-72 rounded-full bg-rose-200/50 blur-3xl" />
           <div className="absolute bottom-[-80px] right-[-80px] h-80 w-80 rounded-full bg-amber-200/50 blur-3xl" />
 
-          <div className="flex min-h-screen items-center justify-center px-6">
+          <div className="flex min-h-dvh items-center justify-center pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
             <div
-              className={`relative h-[520px] w-[390px] max-w-[92vw] transition-all duration-700 ${
+              className={`relative h-[520px] w-[390px] max-w-[92vw] transition-all duration-700 motion-reduce:transition-none ${
                 isOpening
                   ? "scale-105 opacity-0 blur-sm delay-[1000ms]"
                   : "scale-100 opacity-100"
               }`}
             >
               <div
-                className={`absolute left-1/2 z-30 w-[82%] -translate-x-1/2 rounded-[1.7rem] border border-white/80 bg-[#fffdf9] px-6 py-7 text-center shadow-2xl shadow-stone-200/70 transition-all duration-1000 ease-out ${
+                className={`absolute left-1/2 z-30 w-[82%] -translate-x-1/2 rounded-[1.7rem] border border-white/80 bg-[#fffdf9] px-6 py-7 text-center shadow-2xl shadow-stone-200/70 transition-all duration-1000 ease-out motion-reduce:transition-none ${
                   isOpening ? "top-0 opacity-100" : "top-[150px] opacity-100"
                 }`}
               >
@@ -79,9 +103,10 @@ export default function InvitationOverlay({
               </div>
 
               <button
+                ref={opener}
                 onClick={openInvitation}
-                disabled={isOpening}
-                className={`absolute bottom-0 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-stone-800 px-8 py-3 text-sm font-medium text-white shadow-xl transition hover:scale-105 hover:bg-stone-700 disabled:cursor-not-allowed ${
+                aria-disabled={isOpening}
+                className={`absolute bottom-0 left-1/2 z-[70] -translate-x-1/2 whitespace-nowrap rounded-full bg-stone-800 px-8 py-3 text-sm font-medium text-white shadow-xl transition motion-safe:hover:scale-105 hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-stone-700 aria-disabled:cursor-not-allowed ${
                   isOpening ? "opacity-0" : "opacity-100"
                 }`}
               >

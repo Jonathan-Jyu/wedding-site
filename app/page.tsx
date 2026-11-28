@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MotionConfig } from "framer-motion";
 import HeroSection from "@/components/HeroSection";
 import TimelineSection from "@/components/TimelineSection";
 import LocationSection from "@/components/LocationSection";
@@ -15,18 +16,21 @@ import { galleryImages } from "@/data/wedding";
 import { storyTimeline } from "@/data/story";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { useGalleryAnimation } from "@/hooks/useGalleryAnimation";
+import { useReducedMotionPreference } from "@/hooks/useReducedMotionPreference";
 
 const INVITATION_OPEN_MS = 1200;
 const INVITATION_FADE_FALLBACK_MS = 1100;
 
 export default function Home() {
+  const reducedMotion = useReducedMotionPreference();
   const { audioRef, isPlaying, playMusic, toggleMusic } = useBackgroundMusic();
   const [isOpened, setIsOpened] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
   const [isInvitationRevealed, setIsInvitationRevealed] = useState(false);
   const openingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const homeHeading = useRef<HTMLHeadingElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
-  useGalleryAnimation(galleryRef, isInvitationRevealed);
+  useGalleryAnimation(galleryRef, isInvitationRevealed, reducedMotion);
 
   useEffect(() => {
     return () => {
@@ -37,9 +41,13 @@ export default function Home() {
   useEffect(() => {
     if (!isOpened || isInvitationRevealed) return;
     // The opacity transition normally releases the Gallery. Allow for a skipped transition.
-    const timer = setTimeout(() => setIsInvitationRevealed(true), INVITATION_FADE_FALLBACK_MS);
+    const timer = setTimeout(() => setIsInvitationRevealed(true), reducedMotion ? 0 : INVITATION_FADE_FALLBACK_MS);
     return () => clearTimeout(timer);
-  }, [isOpened, isInvitationRevealed]);
+  }, [isOpened, isInvitationRevealed, reducedMotion]);
+
+  useEffect(() => {
+    if (isInvitationRevealed) homeHeading.current?.focus({ preventScroll: true });
+  }, [isInvitationRevealed]);
 
   function openInvitation() {
     if (openingTimer.current !== null || isOpened) return;
@@ -51,22 +59,24 @@ export default function Home() {
       });
 
       setIsOpened(true);
-    }, INVITATION_OPEN_MS);
+      if (reducedMotion) setIsInvitationRevealed(true);
+    }, reducedMotion ? 0 : INVITATION_OPEN_MS);
     playMusic(0.15);
   }
 
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <audio ref={audioRef} src="/music/I Love You 3000.mp3" loop />
-    <main className="bg-[#faf7f2] text-stone-800">
-      <FloatingNavbar />
       <InvitationOverlay
         isOpened={isOpened}
         isOpening={isOpening}
+        isRevealed={isInvitationRevealed}
         openInvitation={openInvitation}
         onRevealed={() => setIsInvitationRevealed(true)}
       />
-      <HeroSection />
+    <main inert={!isInvitationRevealed} className="bg-[#faf7f2] text-stone-800">
+      <FloatingNavbar />
+      <HeroSection headingRef={homeHeading} />
       <GallerySection
         images={galleryImages}
         galleryRef={galleryRef}
@@ -84,6 +94,6 @@ export default function Home() {
         toggleMusic={toggleMusic}
       />
     </main>
-    </>
+    </MotionConfig>
   );
 }

@@ -24,6 +24,7 @@ export default function LocationSection() {
               </p>
               <div className="rounded-2xl overflow-hidden shadow-lg">
                 <iframe
+                  title={`${weddingInfo.venue.name}地圖`}
                   src={weddingInfo.venue.embedUrl}
                   width="100%"
                   height="300"
@@ -56,7 +57,7 @@ export default function LocationSection() {
                   href={weddingInfo.venue.googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block rounded-lg bg-rose-200 px-4 py-2 text-sm font-medium text-rose-800 transition hover:bg-rose-300"
+                  className="inline-block rounded-lg bg-rose-200 px-4 py-2 text-sm font-medium text-rose-800 transition hover:bg-rose-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700"
                 >
                   開啟 Google Maps →
                 </a>

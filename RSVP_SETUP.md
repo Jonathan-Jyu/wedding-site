@@ -15,10 +15,10 @@ GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\
 ### 憑證、文件權限與個資維護
 
 - 本機只在 `.env.local` 設定上述三個 server-only 環境變數。如須保留下載的 Service Account 金鑰 JSON，請集中存放於專案根目錄下的 `.local-secrets/`，並以 `git check-ignore -- <path>` 確認實際路徑受保護。Git 不會依 JSON 檔名判斷憑證。禁止提交真實金鑰，也請避免放入 `public/`、Client Component、日誌或工單。
-- Vercel 專案 **Settings → Environment Variables**。逐一核對環境範圍。Production 使用正式 Sheet 和專用帳號。Preview／Development 如需測試寫入，配置另一份 Sheet 與獨立帳號，並使用個別環境設定。無需寫入時可省略憑證，測試使用 Mock。新值需隨對應環境的新部署載入。[Vercel Environment Variables](https://vercel.com/docs/environment-variables)
+- 主辦方已在 Vercel **Settings → Environment Variables** 確認三個 server-only RSVP 變數，Production／Preview 共用。沒有獨立測試環境。主辦方決定維持設定，接受 Preview 的有效提交可能寫入正式 Sheet。測試使用 Mock；日後若重新評估隔離，可採獨立帳號與 Sheet。[Vercel Environment Variables](https://vercel.com/docs/environment-variables)
 - 在 Google Sheets 按 **共用 → 一般存取權 → 受限制**，核對可存取的主辦方名單。確認服務帳號只有目標試算表的編輯權限，並檢視 Drive 內是否還有其他不必要的直接或繼承分享。Google Cloud **IAM 與管理 → IAM／服務帳戶** 核對帳號、專案權限與金鑰清單。程式使用 Sheets scope 來寫入，實際能存取哪些試算表仍受 Google 分享權限控制。
 - 由帳號管理者輪替時，在 **IAM 與管理 → 服務帳戶 → 選取帳號 → 金鑰** 建立新金鑰，安全地放入目標環境。先以隔離 Sheet 驗證新設定，依授權部署並確認正式寫入及回復路徑，再停用舊金鑰，確認無其他使用者後撤銷。若懷疑外洩，優先通知管理者評估停用並查核存取紀錄。[Google Cloud 金鑰管理建議](https://docs.cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys)
-- 主辦方決定 RSVP 存取人員、保存期限、匯出與備份方式及婚禮後刪除流程。匯出限必要欄位，在受控位置保存並同步清理副本、舊備份與共享連結。表單按鈕附近的草擬用途說明為「您所提供的資料僅供本次婚禮出席確認、聯繫及相關安排使用。」待主辦方確認用途後再刊登。
+- 主辦方已確認服務帳號、IAM／金鑰及 Sheet 共用權限正常，維持目前設定。RSVP 沿用現有文案，取消額外用途提示與同意流程的待辦。個資採人工管理，暫無固定保存期限；婚禮安排與聯繫需求結束後由主辦方決定整理及刪除方式。匯出宜僅含必要欄位並以受控方式管理副本和備份。
 - 應用程式錯誤日誌只記錄固定事件名、伺服器產生的 requestId、錯誤代碼、耗時及符合範圍的 upstream status。以 requestId 查 **Vercel Logs**，檢查平台原生日誌的權限與留存設定時，另行確認 Dashboard 實際設定。
 
 ### 1. Create a Google Cloud Project
@@ -111,6 +111,8 @@ Make sure your Google Sheet has the following headers in row 1:
 API 單次追加到 `工作表1!A:H`，從標題列之後開始。使用 `RAW`，A 是由 `Asia/Taipei` 產生的 `YYYY-MM-DD HH:mm:ss` 文字，C 是電話文字（保留前導零及加號），B／H 保留純文字，D 是「是」或「否」，E／F／G 是數字。姓名或備註的公式樣式字元會依 RAW 寫入。追加回應需確認恰好一列才回成功。寫入不自動重試，逾時或結果不明時請先查既有回覆。
 
 ### A 欄日期與隔離驗收
+
+主辦方已回報現有寫入、台北時間、A:H、電話與人數型別，以及新舊日期型別、日期排序與篩選的通常使用情境皆正常。以下是日後遇到日期契約變更時的通用隔離驗證步驟，目前沒有獨立 Preview 或 Sheet。
 
 1. 在 **檔案 → 設定** 核對 locale 與試算表時區，選一筆舊版及一筆新版資料。可在授權的隔離副本用 `TYPE(A2)`、`ISTEXT(A2)`、`ISNUMBER(A2)` 檢視底層型別，並核對 **格式 → 數字**。歷史列可能是日期序號，新列固定是文字。連續採用同樣格式的文字可按字串排序，混合文字與數字時須實測實際排序與日期篩選。
 2. 在隔離 Sheet／Preview 使用合成資料提交一次，確認只有一列、頁籤及 A:H 正確、A 顯示台北時間、C 保留前導零或國碼、E:G 為數字、H 的公式樣式仍為文字。以主辦方使用的排序、日期篩選、QUERY 或報表副本比較新舊列是否同時納入。核對當地午夜前後跨日。若需 CSV，檢查匯入端對公式前綴的另一次解析。

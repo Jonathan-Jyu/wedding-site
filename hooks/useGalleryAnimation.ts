@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 
 // 調整 Gallery 的自動播放速度、拖曳閾值、最大幀間隔等參數，以提供更流暢的動畫體驗
-const AUTO_SPEED = 30; // 2px per frame at 60Hz, expressed in px/s.
+const AUTO_SPEED = 30; // Pixels per second.
 const MAX_FRAME_GAP_MS = 250;
 const MAX_FRAME_STEP_MS = 1000 / 30;
 const DRAG_THRESHOLD_PX = 8;
@@ -30,8 +30,9 @@ function wrapPosition(position: number, distance: number, start = 0) {
 export function useGalleryAnimation(
   galleryRef: React.RefObject<HTMLDivElement | null>,
   isInvitationOpen: boolean,
+  reducedMotion: boolean,
 ) {
-  const updateInvitation = useRef<((isOpen: boolean) => void) | null>(null);
+  const updatePlayback = useRef<((isOpen: boolean, reduce: boolean) => void) | null>(null);
 
   useLayoutEffect(() => {
     const gallery = galleryRef.current;
@@ -44,6 +45,8 @@ export function useGalleryAnimation(
     let loopStart = 0;
     let viewportWidth = 0;
     let invitationOpen = false;
+    let autoplaySpeed = 0;
+    let allowInertia = true;
     let inView = false;
     let disposed = false;
     let gesture: Gesture | null = null;
@@ -55,7 +58,8 @@ export function useGalleryAnimation(
     const canAnimate = () => !disposed && invitationOpen && inView && !document.hidden;
 
     const requestFrame = () => {
-      const needsFrame = pendingDragDelta !== 0 || position !== renderedPosition || (!gesture && loopDistance > 0);
+      const moving = !gesture && loopDistance > 0 && (autoplaySpeed > 0 || momentumVelocity !== null);
+      const needsFrame = pendingDragDelta !== 0 || position !== renderedPosition || moving;
       if (animationFrameId === null && canAnimate() && needsFrame) {
         animationFrameId = requestAnimationFrame(animate);
       }
@@ -92,16 +96,16 @@ export function useGalleryAnimation(
         position += pendingDragDelta;
         pendingDragDelta = 0;
       } else if (!gesture && loopDistance > 0 && dt > 0) {
-        position += AUTO_SPEED * dt;
+        position += autoplaySpeed * dt;
         if (momentumVelocity !== null) {
           // Integrate exponential decay toward autoplay speed over this frame.
-          const speedDifference = momentumVelocity - AUTO_SPEED;
+          const speedDifference = momentumVelocity - autoplaySpeed;
           const decay = Math.exp(-MOMENTUM_DECAY_RATE * dt);
           position += speedDifference * (1 - decay) / MOMENTUM_DECAY_RATE;
           const remainingSpeed = speedDifference * decay;
           momentumVelocity = Math.abs(remainingSpeed) <= MOMENTUM_STOP_THRESHOLD
             ? null
-            : AUTO_SPEED + remainingSpeed;
+            : autoplaySpeed + remainingSpeed;
         }
       }
 
@@ -150,7 +154,7 @@ export function useGalleryAnimation(
       if (release && active.isDragging) {
         recordDrag(active, release);
         const velocity = active.velocity;
-        if (release.timeStamp - active.lastMoveTime <= VELOCITY_MAX_AGE_MS && Math.abs(velocity) >= MIN_FLING_SPEED) {
+        if (allowInertia && release.timeStamp - active.lastMoveTime <= VELOCITY_MAX_AGE_MS && Math.abs(velocity) >= MIN_FLING_SPEED) {
           const flingSpeed = Math.min(Math.abs(velocity) * FLING_SPEED_MULTIPLIER, MAX_FLING_SPEED);
           momentumVelocity = Math.sign(velocity) * flingSpeed;
         }
@@ -268,7 +272,14 @@ export function useGalleryAnimation(
     }, { threshold: [0, START_VISIBILITY_RATIO] });
     intersectionObserver.observe(viewport);
 
-    updateInvitation.current = (isOpen) => {
+    updatePlayback.current = (isOpen, reduce) => {
+      const nextSpeed = reduce ? 0 : AUTO_SPEED;
+      if (autoplaySpeed !== nextSpeed) {
+        momentumVelocity = null;
+        cancelFrame();
+      }
+      autoplaySpeed = nextSpeed;
+      allowInertia = !reduce;
       invitationOpen = isOpen;
       syncPlayback();
     };
@@ -284,7 +295,7 @@ export function useGalleryAnimation(
 
     return () => {
       disposed = true;
-      updateInvitation.current = null;
+      updatePlayback.current = null;
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       document.removeEventListener("visibilitychange", syncPlayback);
@@ -300,6 +311,6 @@ export function useGalleryAnimation(
   }, [galleryRef]);
 
   useLayoutEffect(() => {
-    updateInvitation.current?.(isInvitationOpen);
-  }, [galleryRef, isInvitationOpen]);
+    updatePlayback.current?.(isInvitationOpen, reducedMotion);
+  }, [galleryRef, isInvitationOpen, reducedMotion]);
 }

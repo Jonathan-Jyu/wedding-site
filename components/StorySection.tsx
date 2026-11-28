@@ -22,7 +22,7 @@ function StoryPhoto({ image, title, year }: { image: NonNullable<Story["image"]>
         fill
         sizes="(min-width: 768px) 220px, calc(100vw - 88px)"
         loading="lazy"
-        className="object-cover transition duration-700 hover:scale-105"
+        className="object-cover transition duration-700 motion-safe:hover:scale-105"
         draggable={false}
         onError={() => setFailed(true)}
       />

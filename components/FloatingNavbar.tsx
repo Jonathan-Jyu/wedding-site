@@ -11,13 +11,13 @@ const navItems = [
 
 export default function FloatingNavbar() {
   return (
-    <nav className="fixed left-1/2 top-3 z-50 -translate-x-1/2 rounded-full border border-white/60 bg-white/55 px-4 py-2 shadow-lg backdrop-blur-md md:top-5 md:px-5 md:py-3">
-      <div className="flex items-center gap-3 text-xs text-stone-600 md:gap-6 md:text-sm">
+    <nav aria-label="婚禮導覽" className="fixed left-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-50 w-max max-w-[calc(100%-2*max(0.5rem,env(safe-area-inset-left),env(safe-area-inset-right)))] -translate-x-1/2 overflow-x-auto rounded-full border border-white/60 bg-white/55 px-2 shadow-lg [scrollbar-width:none] backdrop-blur-md md:top-[max(1.25rem,env(safe-area-inset-top))] md:px-4 md:py-1">
+      <div className="flex w-max items-center gap-1 whitespace-nowrap text-xs text-stone-600 max-[350px]:gap-0.5 sm:gap-3 md:gap-4 md:text-sm">
         {navItems.map((item) => (
           <a
             key={item.href}
             href={item.href}
-            className="transition hover:text-rose-400"
+            className="flex min-h-9 items-center rounded-full px-1 transition hover:text-rose-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stone-700"
           >
             {item.label}
           </a>
