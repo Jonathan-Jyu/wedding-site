@@ -159,3 +159,47 @@ test("reduced motion reveals without an opacity event and still requests music o
   assert.equal(home.timers.size, 0);
   home.unmount();
 });
+
+test("the invitation leaves initial focus alone and only redirects it for Tab or during the fade", () => {
+  const overlaySource = readFileSync(new URL("../components/InvitationOverlay.tsx", import.meta.url), "utf8");
+  const overlayScript = ts.transpileModule(overlaySource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText;
+  const exports = {};
+  const focus = [];
+  const document = { activeElement: null };
+  const dialog = { focus: options => focus.push(["dialog", options.preventScroll]) };
+  const opener = { focus: () => focus.push(["opener"]) };
+  const jsx = (type, props) => ({ type, props });
+  let refs, effect;
+  const modules = {
+    react: {
+      useEffect: callback => { effect = callback; },
+      useRef: () => ({ current: refs.shift() }),
+    },
+    "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "fragment" },
+  };
+  runInNewContext(overlayScript, { exports, require: name => modules[name], document });
+  const render = (isOpened, isRevealed) => {
+    refs = [dialog, opener];
+    const overlay = exports.default({ isOpened, isRevealed });
+    effect();
+    return overlay.props;
+  };
+
+  const { onKeyDown } = render(false, false);
+  assert.deepEqual(focus, []);
+  let prevented = 0;
+  const keydown = key => onKeyDown({ key, preventDefault: () => prevented++ });
+  keydown("Enter");
+  assert.equal(prevented, 0);
+  keydown("Tab");
+  assert.deepEqual(focus, [["opener"]]);
+  document.activeElement = opener;
+  keydown("Tab");
+  assert.equal(prevented, 2);
+  assert.deepEqual(focus, [["opener"]]);
+  render(true, false);
+  render(true, true);
+  assert.deepEqual(focus, [["opener"], ["dialog", true]]);
+});

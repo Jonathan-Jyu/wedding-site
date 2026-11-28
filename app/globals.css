@@ -47,8 +47,32 @@ html {
   }
 }
 
-body:has([aria-modal="true"]) {
+html:has(.invitation-overlay[aria-modal="true"]) {
+  scrollbar-gutter: stable;
+}
+
+body:has(.invitation-overlay[aria-modal="true"]) {
   overflow: hidden;
+}
+
+/* The 520px envelope only needs a scroller when it cannot fit with 32px of padding. */
+@media (height < 552px) {
+  html:has(.invitation-overlay[aria-modal="true"]) {
+    scrollbar-gutter: auto;
+  }
+
+  .invitation-overlay {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .invitation-layout {
+    min-height: 100dvh;
+    padding: max(1rem, env(safe-area-inset-top))
+      max(1.5rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom))
+      max(1.5rem, env(safe-area-inset-left));
+  }
 }
 
 @keyframes footer-petal {

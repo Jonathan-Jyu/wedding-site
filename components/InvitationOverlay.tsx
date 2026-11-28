@@ -19,8 +19,7 @@ export default function InvitationOverlay({
   const opener = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (isRevealed) return;
-    (isOpened ? dialog.current : opener.current)?.focus({ preventScroll: true });
+    if (isOpened && !isRevealed) dialog.current?.focus({ preventScroll: true });
   }, [isOpened, isRevealed]);
 
   return (
@@ -34,15 +33,14 @@ export default function InvitationOverlay({
       onKeyDown={(event) => {
         if (event.key !== "Tab" || isRevealed) return;
         event.preventDefault();
-        opener.current?.focus({ preventScroll: true });
-        opener.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
+        if (document.activeElement !== opener.current) opener.current?.focus();
       }}
       onTransitionEnd={(event) => {
         if (isOpened && event.target === event.currentTarget && event.propertyName === "opacity") {
           onRevealed();
         }
       }}
-      className={`fixed inset-0 z-[100] overflow-x-hidden overflow-y-auto overscroll-contain bg-[#faf7f2] text-stone-800 outline-none transition-opacity duration-1000 motion-reduce:transition-none ${
+      className={`invitation-overlay fixed inset-0 z-[100] overflow-hidden bg-[#faf7f2] text-stone-800 outline-none transition-opacity duration-1000 motion-reduce:transition-none ${
         isOpened ? "pointer-events-none opacity-0" : "opacity-100"
       }`}
     >
@@ -51,7 +49,7 @@ export default function InvitationOverlay({
           <div className="absolute left-[-80px] top-[-80px] h-72 w-72 rounded-full bg-rose-200/50 blur-3xl" />
           <div className="absolute bottom-[-80px] right-[-80px] h-80 w-80 rounded-full bg-amber-200/50 blur-3xl" />
 
-          <div className="flex min-h-dvh items-center justify-center pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
+          <div className="invitation-layout flex min-h-screen items-center justify-center px-6">
             <div
               className={`relative h-[520px] w-[390px] max-w-[92vw] transition-all duration-700 motion-reduce:transition-none ${
                 isOpening
@@ -105,8 +103,8 @@ export default function InvitationOverlay({
               <button
                 ref={opener}
                 onClick={openInvitation}
-                aria-disabled={isOpening}
-                className={`absolute bottom-0 left-1/2 z-[70] -translate-x-1/2 whitespace-nowrap rounded-full bg-stone-800 px-8 py-3 text-sm font-medium text-white shadow-xl transition motion-safe:hover:scale-105 hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-stone-700 aria-disabled:cursor-not-allowed ${
+                disabled={isOpening}
+                className={`absolute bottom-0 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-stone-800 px-8 py-3 text-sm font-medium text-white shadow-xl transition motion-safe:hover:scale-105 hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-4 focus-visible:outline-stone-700 disabled:cursor-not-allowed ${
                   isOpening ? "opacity-0" : "opacity-100"
                 }`}
               >
